@@ -1,0 +1,42 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: equipment_tracking_postgres
+    environment:
+      POSTGRES_DB: hwwach_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  app:
+    build: .
+    container_name: equipment_tracking_app
+    ports:
+      - "3000:3000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_USERNAME=postgres
+      - DB_PASSWORD=postgres
+      - DB_NAME=hwwach_db
+      - JWT_SECRET=your-super-secret-jwt-key-here-make-it-long-and-random
+      - JWT_EXPIRES_IN=24h
+      - JWT_EXPIRATION_TIME=15m
+      - JWT_REFRESH_EXPIRATION_TIME=7d
+      - BCRYPT_ROUNDS=10
+      - PORT=3000
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
