@@ -24,22 +24,39 @@ export class User {
   password: string;
 
   @Column({ unique: true })
-  @IsPhoneNumber('RU')
-  @Matches(/^\+7-\d{3}-\d{3}-\d{2}-\d{2}$/, {
-    message: 'Phone number must be in the format +7-XXX-XXX-XX-XX'
+  @Matches(/^\+\d{1,15}$/, {
+    message: 'Phone must start with + and contain only digits'
   })
   phone: string;
 
   @Column()
   @IsString()
   @IsNotEmpty()
-  @Length(2, 100)
-  fullName: string;
+  @Length(2, 50)
+  lastName: string;
+
+  @Column()
+  @IsString()
+  @IsNotEmpty()
+  @Length(2, 50)
+  firstName: string;
+
+  @Column({ nullable: true })
+  @IsString()
+  @IsOptional()
+  @Length(2, 50)
+  middleName: string | null;
+
+  @Column({ nullable: true })
+  @IsString()
+  @IsOptional()
+  @Length(3, 100)
+  position: string | null;
 
   @Column({
     type: 'enum',
     enum: UserRole,
-    default: UserRole.USER,
+    default: UserRole.USER
   })
   @IsEnum(UserRole)
   @IsNotEmpty()

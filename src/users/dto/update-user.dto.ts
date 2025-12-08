@@ -1,4 +1,4 @@
-import { IsEnum, IsOptional, IsString, IsPhoneNumber, Length, Matches } from 'class-validator';
+import { IsEnum, IsOptional, IsString, IsPhoneNumber, Length } from 'class-validator';
 import { UserRole } from '../entities/user.entity';
 
 export class UpdateUserDto {
@@ -12,17 +12,29 @@ export class UpdateUserDto {
   @Length(6, 100)
   password?: string;
 
-  @IsPhoneNumber('RU')
-  @Matches(/^\+7-\d{3}-\d{3}-\d{2}-\d{2}$/, {
-    message: 'Phone number must be in the format +7-XXX-XXX-XX-XX'
-  })
+  @IsPhoneNumber('BY')
   @IsOptional()
   phone?: string;
 
   @IsString()
   @IsOptional()
-  @Length(2, 100)
-  fullName?: string;
+  @Length(2, 50)
+  lastName?: string;
+
+  @IsString()
+  @IsOptional()
+  @Length(2, 50)
+  firstName?: string;
+
+  @IsString()
+  @IsOptional()
+  @Length(2, 50)
+  middleName?: string;
+
+  @IsString()
+  @IsOptional()
+  @Length(3, 100)
+  position?: string;
 
   @IsEnum(UserRole)
   @IsOptional()

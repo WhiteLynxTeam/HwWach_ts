@@ -31,9 +31,24 @@ export class CreateUserTable1733274432000 implements MigrationInterface {
           isNullable: false,
         },
         {
-          name: 'full_name',
+          name: 'last_name',
           type: 'varchar',
           isNullable: false,
+        },
+        {
+          name: 'first_name',
+          type: 'varchar',
+          isNullable: false,
+        },
+        {
+          name: 'middle_name',
+          type: 'varchar',
+          isNullable: true,
+        },
+        {
+          name: 'position',
+          type: 'varchar',
+          isNullable: true,
         },
         {
           name: 'role',

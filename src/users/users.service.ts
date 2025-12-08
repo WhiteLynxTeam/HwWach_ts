@@ -34,7 +34,10 @@ export class UsersService {
     user.login = createUserDto.login;
     user.password = hashedPassword;
     user.phone = createUserDto.phone;
-    user.fullName = createUserDto.fullName;
+    user.lastName = createUserDto.lastName;
+    user.firstName = createUserDto.firstName;
+    user.middleName = createUserDto.middleName ?? null;
+    user.position = createUserDto.position ?? null;
     user.role = createUserDto.role || UserRole.USER;
     user.isActive = true;
 
@@ -43,14 +46,14 @@ export class UsersService {
 
   async findAll(): Promise<User[]> {
     return await this.usersRepository.find({
-      select: ['id', 'login', 'phone', 'fullName', 'role', 'isActive', 'createdAt', 'updatedAt'],
+      select: ['id', 'login', 'phone', 'lastName', 'firstName', 'middleName', 'position', 'role', 'isActive', 'createdAt', 'updatedAt'],
     });
   }
 
   async findOne(id: string): Promise<User> {
     const user = await this.usersRepository.findOne({
       where: { id },
-      select: ['id', 'login', 'phone', 'fullName', 'role', 'isActive', 'createdAt', 'updatedAt'],
+      select: ['id', 'login', 'phone', 'lastName', 'firstName', 'middleName', 'position', 'role', 'isActive', 'createdAt', 'updatedAt'],
     });
 
     if (!user) {
@@ -117,6 +120,6 @@ export class UsersService {
 
     // Return user without password
     const { password: _, ...result } = user;
-    return result;
+    return  user;
   }
 }
