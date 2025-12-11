@@ -1,4 +1,4 @@
-import { Injectable, UnauthorizedException, NotFoundException, ConflictException } from '@nestjs/common';
+import { Injectable, UnauthorizedException, NotFoundException, ConflictException, OnModuleInit } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { User, UserRole } from './entities/user.entity';
@@ -7,11 +7,47 @@ import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 
 @Injectable()
-export class UsersService {
+export class UsersService implements OnModuleInit {
   constructor(
     @InjectRepository(User)
     private usersRepository: Repository<User>,
-  ) {}
+  )  {
+    console.log('🏗️ UsersService CONSTRUCTOR called');  // <--- Сработает ли?
+  }
+
+  async onModuleInit() {
+    console.log('⚙️ UsersService onModuleInit called');
+    // throw new Error('TEST ERROR - onModuleInit is running!');
+
+    try {
+      console.log('🔍 Checking for default admin...');
+
+      const adminExists = await this.usersRepository.findOne({
+        where: { role: UserRole.ADMIN },
+      });
+
+      if (!adminExists) {
+        const adminLogin = process.env.DEFAULT_ADMIN_LOGIN || 'admin';
+        const adminPassword = process.env.DEFAULT_ADMIN_PASSWORD || '123!';
+
+        const hashedPassword = await bcrypt.hash(adminPassword, 10);
+
+        const defaultAdmin = this.usersRepository.create({
+          login: adminLogin,
+          password: hashedPassword,
+          role: UserRole.ADMIN,
+        });
+
+        await this.usersRepository.save(defaultAdmin);
+        console.log(`✅ Default admin created: ${adminLogin}`);
+      } else {
+        console.log('ℹ️ Admin already exists');
+      }
+    } catch (error) {
+      console.error('❌ Error during admin initialization:', error.message);
+      throw error; // Не запускать приложение, если админ не создался
+    }
+  }
 
   async create(createUserDto: CreateUserDto): Promise<User> {
     // Check if login or phone already exists
@@ -36,8 +72,8 @@ export class UsersService {
     user.phone = createUserDto.phone;
     user.lastName = createUserDto.lastName;
     user.firstName = createUserDto.firstName;
-    user.middleName = createUserDto.middleName ?? null;
-    user.position = createUserDto.position ?? null;
+    user.middleName = createUserDto.middleName;
+    user.position = createUserDto.position;
     user.role = createUserDto.role || UserRole.USER;
     user.isActive = true;
 
@@ -120,6 +156,6 @@ export class UsersService {
 
     // Return user without password
     const { password: _, ...result } = user;
-    return  user;
+    return user;
   }
 }

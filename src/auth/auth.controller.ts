@@ -4,12 +4,12 @@ import {
   Request,
   UseGuards,
   Body,
-  ValidationPipe,
   HttpStatus,
+  HttpCode,
 } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { LocalAuthGuard } from './local-auth.guard';
-import { ApiTags, ApiResponse, ApiOperation } from '@nestjs/swagger';
+import { ApiTags, ApiResponse, ApiOperation, ApiBody } from '@nestjs/swagger';
 import { LoginDto } from './dto/login.dto';
 
 @ApiTags('Auth')
@@ -18,10 +18,15 @@ export class AuthController {
   constructor(private authService: AuthService) {}
 
   @Post('login')
+  @HttpCode(HttpStatus.OK)
   @UseGuards(LocalAuthGuard)
   @ApiOperation({ summary: 'Login to the system' })
   @ApiResponse({ status: 200, description: 'Successfully logged in.' })
   @ApiResponse({ status: 401, description: 'Unauthorized.' })
+  @ApiBody({
+    description: 'Login credentials',
+    type: LoginDto,
+  })
   async login(@Request() req) {
     return this.authService.login(req.user);
   }

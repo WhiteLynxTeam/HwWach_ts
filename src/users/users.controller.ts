@@ -1,16 +1,15 @@
-import {
-  Controller,
-  Get,
-  Post,
-  Put,
-  Delete,
-  Body,
-  Param,
-  UseGuards,
-  Request,
-  HttpStatus,
-  ValidationPipe,
-} from '@nestjs/common';
+  import {
+    Controller,
+    Get,
+    Post,
+    Put,
+    Delete,
+    Body,
+    Param,
+    UseGuards,
+    Request,
+    HttpStatus,
+  } from '@nestjs/common';
 import { UsersService } from './users.service';
 import { User} from './entities/user.entity';
 import { AuthGuard } from '@nestjs/passport';
@@ -53,7 +52,7 @@ export class UsersController {
   @ApiResponse({ status: 201, description: 'The user has been successfully created.' })
   @ApiResponse({ status: 400, description: 'Bad Request.' })
   @ApiResponse({ status: 403, description: 'Forbidden.' })
-  async create(@Body(ValidationPipe) createUserDto: CreateUserDto): Promise<Omit<User, 'password'>> {
+  async create(@Body() createUserDto: CreateUserDto): Promise<Omit<User, 'password'>> {
     // Omit password from response
     const { password, ...user } = await this.usersService.create(createUserDto);
     return user;
@@ -67,7 +66,7 @@ export class UsersController {
   @ApiResponse({ status: 400, description: 'Bad Request.' })
   @ApiResponse({ status: 403, description: 'Forbidden.' })
   @ApiResponse({ status: 404, description: 'User not found.' })
-  async update(@Param('id') id: string, @Body(ValidationPipe) updateUserDto: UpdateUserDto): Promise<Omit<User, 'password'>> {
+  async update(@Param('id') id: string, @Body() updateUserDto: UpdateUserDto): Promise<Omit<User, 'password'>> {
     // Omit password from response
     const { password, ...user } = await this.usersService.update(id, updateUserDto);
     return user;

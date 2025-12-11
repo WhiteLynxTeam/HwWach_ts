@@ -3,42 +3,35 @@ services:
     image: postgres:16
     container_name: equipment_tracking_postgres_dev
     environment:
-      POSTGRES_DB: hwwach_db
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: ${DB_NAME}
+      POSTGRES_USER: ${DB_USERNAME}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
     ports:
-      - "5432:5432"  # Единый порт для разработки
+      - "${DB_PORT}:${DB_PORT}"
     volumes:
       - postgres_data_dev:/var/lib/postgresql/data
+    restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
 
   app:
     build: .
     container_name: equipment_tracking_app_dev
     ports:
-      - "3000:3000"  # Единый порт приложения
+      - "${PORT}:${PORT}"
     volumes:
       - .:/app
       - node_modules_dev:/app/node_modules
+    command: npm run start:dev
     depends_on:
       postgres:
         condition: service_healthy
-    environment:
-      - DB_HOST=postgres
-      - DB_PORT=5432
-      - DB_USERNAME=postgres
-      - DB_PASSWORD=postgres
-      - DB_NAME=hwwach_db
-      - JWT_SECRET=your-super-secret-jwt-key-here-make-it-long-and-random
-      - JWT_EXPIRES_IN=24h
-      - JWT_EXPIRATION_TIME=15m
-      - JWT_REFRESH_EXPIRATION_TIME=7d
-      - BCRYPT_ROUNDS=10
-      - PORT=3000
+    env_file:
+      - .env
     restart: unless-stopped
 
 volumes:
