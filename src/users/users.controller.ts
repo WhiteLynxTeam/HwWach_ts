@@ -19,6 +19,7 @@ import { UserRole } from './entities/user.entity';
 import { ApiBearerAuth, ApiTags, ApiResponse, ApiOperation } from '@nestjs/swagger';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
+import { PendingRegistration } from './entities/pending-registration.entity';
 
 @ApiTags('Users')
 @Controller('users')
@@ -82,5 +83,64 @@ export class UsersController {
   async remove(@Param('id') id: string): Promise<{ message: string }> {
     await this.usersService.remove(id);
     return { message: 'User deactivated successfully' };
+  }
+
+  @Get('registrations')
+  @Roles(UserRole.ADMIN)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Get all pending registrations (Admin only)' })
+  @ApiResponse({ status: 200, description: 'Return all pending registrations.' })
+  @ApiResponse({ status: 403, description: 'Forbidden.' })
+  async getPendingRegistrations(): Promise<Array<Omit<PendingRegistration, 'passwordHash'>>> {
+    const registrations = await this.usersService.getPendingRegistrations();
+    return registrations.map(({ passwordHash, ...rest }) => rest);
+  }
+
+  @Get('registrations/:id')
+  @Roles(UserRole.ADMIN)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Get a pending registration by ID (Admin only)' })
+  @ApiResponse({ status: 200, description: 'Return the pending registration.' })
+  @ApiResponse({ status: 403, description: 'Forbidden.' })
+  @ApiResponse({ status: 404, description: 'Registration request not found.' })
+  async getRegistrationById(@Param('id') id: string): Promise<Omit<PendingRegistration, 'passwordHash'>> {
+    const registration = await this.usersService.getRegistrationById(id);
+    const { passwordHash, ...result } = registration;
+    return result;
+  }
+
+  @Post('registrations/:id/approve')
+  @Roles(UserRole.ADMIN)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Approve a pending registration (Admin only)' })
+  @ApiResponse({ status: 200, description: 'Successfully approved the registration.' })
+  @ApiResponse({ status: 400, description: 'Bad Request.' })
+  @ApiResponse({ status: 403, description: 'Forbidden.' })
+  @ApiResponse({ status: 404, description: 'Registration request or user not found.' })
+  async approveRegistration(
+    @Param('id') id: string,
+    @Body('comment') comment?: string,
+    @Request() req?: any
+  ): Promise<Omit<PendingRegistration, 'passwordHash'>> {
+    const registration = await this.usersService.approveRegistration(id, req?.user?.id, comment);
+    const { passwordHash, ...result } = registration;
+    return result;
+  }
+
+  @Post('registrations/:id/reject')
+  @Roles(UserRole.ADMIN)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Reject a pending registration (Admin only)' })
+  @ApiResponse({ status: 200, description: 'Successfully rejected the registration.' })
+  @ApiResponse({ status: 400, description: 'Bad Request.' })
+  @ApiResponse({ status: 403, description: 'Forbidden.' })
+  @ApiResponse({ status: 404, description: 'Registration request not found.' })
+  async rejectRegistration(
+    @Param('id') id: string,
+    @Body('reason') reason?: string
+  ): Promise<Omit<PendingRegistration, 'passwordHash'>> {
+    const registration = await this.usersService.rejectRegistration(id, reason);
+    const { passwordHash, ...result } = registration;
+    return result;
   }
 }

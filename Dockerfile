@@ -17,7 +17,7 @@ COPY tsconfig*.json ./
 RUN npm run build
 
 # Expose port
-EXPOSE 3000
+EXPOSE 3033
 
 # Start the application
 CMD ["node", "dist/main.js"]

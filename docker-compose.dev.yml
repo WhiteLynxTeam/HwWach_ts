@@ -7,7 +7,7 @@ services:
       POSTGRES_USER: ${DB_USERNAME}
       POSTGRES_PASSWORD: ${DB_PASSWORD}
     ports:
-      - "${DB_PORT}:${DB_PORT}"
+      - "${DB_PORT_OUT}:${DB_PORT_IN}"
     volumes:
       - postgres_data_dev:/var/lib/postgresql/data
     restart: unless-stopped

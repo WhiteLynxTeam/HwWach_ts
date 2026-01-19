@@ -2,6 +2,7 @@ import { Injectable, UnauthorizedException, NotFoundException, ConflictException
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { User, UserRole } from './entities/user.entity';
+import { PendingRegistration, RegistrationStatus } from './entities/pending-registration.entity';
 import * as bcrypt from 'bcrypt';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
@@ -11,6 +12,8 @@ export class UsersService implements OnModuleInit {
   constructor(
     @InjectRepository(User)
     private usersRepository: Repository<User>,
+    @InjectRepository(PendingRegistration)
+    private pendingRegistrationsRepository: Repository<PendingRegistration>,
   )  {
     console.log('🏗️ UsersService CONSTRUCTOR called');  // <--- Сработает ли?
   }
@@ -157,5 +160,136 @@ export class UsersService implements OnModuleInit {
     // Return user without password
     const { password: _, ...result } = user;
     return user;
+  }
+
+  async registerUser(userData: Partial<CreateUserDto>): Promise<Omit<PendingRegistration, 'passwordHash'>> {
+    // Проверяем, существует ли уже пользователь с таким логином или телефоном
+    const existingUser = await this.usersRepository.findOne({
+      where: [
+        { login: userData.login },
+        { phone: userData.phone }
+      ],
+    });
+
+    if (existingUser) {
+      throw new ConflictException('User with this login or phone already exists');
+    }
+
+    // Проверяем, не существует ли уже запрос на регистрацию с таким логином или телефоном
+    const existingPendingRegistration = await this.pendingRegistrationsRepository.findOne({
+      where: [
+        { login: userData.login },
+        { phone: userData.phone }
+      ],
+    });
+
+    if (existingPendingRegistration) {
+      throw new ConflictException('Registration request with this login or phone already exists');
+    }
+
+    // Хэшируем пароль
+    const saltRounds = process.env.BCRYPT_ROUNDS ? parseInt(process.env.BCRYPT_ROUNDS) : 10;
+    const hashedPassword = await bcrypt.hash(userData.password!, saltRounds);
+
+    const pendingRegistration = new PendingRegistration();
+    pendingRegistration.login = userData.login!;
+    pendingRegistration.passwordHash = hashedPassword;
+    pendingRegistration.firstName = userData.firstName;
+    pendingRegistration.lastName = userData.lastName;
+    pendingRegistration.middleName = userData.middleName;
+    pendingRegistration.phone = userData.phone;
+    pendingRegistration.position = userData.position;
+    pendingRegistration.status = RegistrationStatus.PENDING;
+
+    const savedRegistration = await this.pendingRegistrationsRepository.save(pendingRegistration);
+
+    // Возвращаем объект без passwordHash
+    const { passwordHash, ...result } = savedRegistration;
+    return result;
+  }
+
+  async approveRegistration(registrationId: string, approvedById: string, comment?: string): Promise<PendingRegistration> {
+    const registration = await this.pendingRegistrationsRepository.findOne({
+      where: { id: registrationId }
+    });
+
+    if (!registration) {
+      throw new NotFoundException('Registration request not found');
+    }
+
+    if (registration.status !== RegistrationStatus.PENDING) {
+      throw new ConflictException('Registration request is not in pending status');
+    }
+
+    // Получаем пользователя, который одобряет регистрацию
+    const approvingUser = await this.usersRepository.findOne({
+      where: { id: approvedById }
+    });
+
+    if (!approvingUser) {
+      throw new NotFoundException('Approving user not found');
+    }
+
+    // Создаем нового пользователя из данных регистрации
+    const newUser = new User();
+    newUser.login = registration.login;
+    newUser.password = registration.passwordHash; // Сохраняем уже захэшированный пароль
+    newUser.firstName = registration.firstName;
+    newUser.lastName = registration.lastName;
+    newUser.middleName = registration.middleName;
+    newUser.phone = registration.phone;
+    newUser.position = registration.position;
+    newUser.role = UserRole.USER; // Новый пользователь получает роль USER по умолчанию
+    newUser.isActive = true;
+
+    // Сохраняем нового пользователя
+    await this.usersRepository.save(newUser);
+
+    // Обновляем статус запроса на регистрацию
+    registration.status = RegistrationStatus.APPROVED;
+    registration.approvedByUser = approvingUser;
+    registration.approvalComment = comment;
+    registration.approvedAt = new Date();
+
+    return await this.pendingRegistrationsRepository.save(registration);
+  }
+
+  async rejectRegistration(registrationId: string, rejectedReason?: string): Promise<PendingRegistration> {
+    const registration = await this.pendingRegistrationsRepository.findOne({
+      where: { id: registrationId }
+    });
+
+    if (!registration) {
+      throw new NotFoundException('Registration request not found');
+    }
+
+    if (registration.status !== RegistrationStatus.PENDING) {
+      throw new ConflictException('Registration request is not in pending status');
+    }
+
+    registration.status = RegistrationStatus.REJECTED;
+    registration.rejectedReason = rejectedReason;
+
+    return await this.pendingRegistrationsRepository.save(registration);
+  }
+
+  async getPendingRegistrations(): Promise<PendingRegistration[]> {
+    return await this.pendingRegistrationsRepository.find({
+      where: { status: RegistrationStatus.PENDING },
+      relations: ['approvedByUser']
+    });
+  }
+
+  async getRegistrationById(id: string): Promise<PendingRegistration> {
+    const registration = await this.pendingRegistrationsRepository.findOne({
+      where: { id },
+      relations: ['approvedByUser']
+    });
+
+    if (!registration) {
+      throw new NotFoundException('Registration request not found');
+    }
+
+    return registration;
   }
 }

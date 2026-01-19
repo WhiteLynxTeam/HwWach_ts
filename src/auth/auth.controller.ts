@@ -11,11 +11,17 @@ import { AuthService } from './auth.service';
 import { LocalAuthGuard } from './local-auth.guard';
 import { ApiTags, ApiResponse, ApiOperation, ApiBody } from '@nestjs/swagger';
 import { LoginDto } from './dto/login.dto';
+import { RegisterDto } from './dto/register.dto';
+import { UsersService } from '../users/users.service';
+import { PendingRegistration } from '../users/entities/pending-registration.entity';
 
 @ApiTags('Auth')
 @Controller('auth')
 export class AuthController {
-  constructor(private authService: AuthService) {}
+  constructor(
+    private authService: AuthService,
+    private usersService: UsersService,
+  ) {}
 
   @Post('login')
   @HttpCode(HttpStatus.OK)
@@ -29,6 +35,19 @@ export class AuthController {
   })
   async login(@Request() req) {
     return this.authService.login(req.user);
+  }
+
+  @Post('register')
+  @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({ summary: 'Register a new user' })
+  @ApiResponse({ status: 201, description: 'Successfully registered a new user request.' })
+  @ApiResponse({ status: 400, description: 'Bad Request.' })
+  @ApiBody({
+    description: 'Registration data',
+    type: RegisterDto,
+  })
+  async register(@Body() registerDto: RegisterDto): Promise<Omit<PendingRegistration, 'passwordHash'>> {
+    return this.usersService.registerUser(registerDto);
   }
 
   @Post('refresh')

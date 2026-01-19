@@ -40,7 +40,7 @@ services:
       - key: BCRYPT_ROUNDS
         value: 10
       - key: PORT
-        value: 3000
+        value: 3033
 
 databases:
   - name: hwwach-db

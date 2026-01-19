@@ -55,7 +55,7 @@
    - JWT_EXPIRATION_TIME = 15m
    - JWT_REFRESH_EXPIRATION_TIME = 7d
    - BCRYPT_ROUNDS = 10
-   - PORT = 3000
+   - PORT = 3033
 10. Нажмите "Create Web Service"
 
 ## Альтернативный метод - через render.yaml
