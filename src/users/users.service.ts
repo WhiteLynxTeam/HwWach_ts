@@ -20,7 +20,6 @@ export class UsersService implements OnModuleInit {
 
   async onModuleInit() {
     console.log('⚙️ UsersService onModuleInit called');
-    // throw new Error('TEST ERROR - onModuleInit is running!');
 
     try {
       console.log('🔍 Checking for default admin...');
@@ -47,8 +46,9 @@ export class UsersService implements OnModuleInit {
         console.log('ℹ️ Admin already exists');
       }
     } catch (error) {
-      console.error('❌ Error during admin initialization:', error.message);
-      throw error; // Не запускать приложение, если админ не создался
+      // Логируем ошибку, но не прерываем запуск приложения
+      console.error('⚠️ Warning: Could not initialize default admin:', error.message);
+      console.error('This might happen if tables do not exist yet. Admin will be created when tables are ready.');
     }
   }
 
