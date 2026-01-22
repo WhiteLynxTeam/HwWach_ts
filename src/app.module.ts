@@ -22,8 +22,8 @@ const config = getConfig();
       database: config.db.database,
       entities: [__dirname + '/**/*.entity{.ts,.js}'],
       migrations: [__dirname + '/migrations/**/*{.ts,.js}'],
-      synchronize: false, // Use migrations instead in production
-      migrationsRun: true, // Run migrations automatically
+      synchronize: false,
+      migrationsRun: true,
     }),
     AuthModule,
     UsersModule,

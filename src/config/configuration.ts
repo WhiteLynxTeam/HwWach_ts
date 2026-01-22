@@ -29,7 +29,7 @@ export function getConfig(): AppConfig {
   return {
     db: {
       host: process.env.DB_HOST || 'localhost',
-      port: parseInt(process.env.DB_PORT_IN || '5444', 10),
+      port: parseInt(process.env.DB_PORT_IN || '5432', 10),
       username: required('DB_USERNAME'),
       password: required('DB_PASSWORD'),
       database: process.env.DB_NAME || 'hwwach_db',

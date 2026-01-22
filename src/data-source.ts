@@ -12,4 +12,5 @@ export default new DataSource({
   database: config.db.database,
   entities: [__dirname + '/**/*.entity{.ts,.js}'],
   migrations: [__dirname + '/migrations/**/*{.ts,.js}'],
+  synchronize: false, // Отключаем автоматическую синхронизацию
 });

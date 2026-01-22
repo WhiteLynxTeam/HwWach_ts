@@ -59,6 +59,7 @@ export class PendingRegistration {
   @Column({
     type: 'enum',
     enum: RegistrationStatus,
+    enumName: 'pending_registration_status_enum',
     default: RegistrationStatus.PENDING
   })
   status: RegistrationStatus;

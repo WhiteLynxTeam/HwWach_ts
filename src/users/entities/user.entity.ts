@@ -58,6 +58,7 @@ export class User {
   @Column({
     type: 'enum',
     enum: UserRole,
+    enumName: 'user_role_enum',
     default: UserRole.USER
   })
   @IsEnum(UserRole)
@@ -68,11 +69,9 @@ export class User {
   @IsOptional()
   isActive: boolean;
 
-  @CreateDateColumn()
-  @Column({ name: 'created_at'})
+  @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 
-  @UpdateDateColumn()
-  @Column({ name: 'updated_at'})
+  @UpdateDateColumn({ name: 'updated_at' })
   updatedAt: Date;
 }
