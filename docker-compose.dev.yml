@@ -1,6 +1,7 @@
 services:
   postgres:
     image: postgres:16
+    mem_limit: 1G
     container_name: equipment_tracking_postgres_dev
     environment:
       POSTGRES_DB: ${DB_NAME}
@@ -33,6 +34,7 @@ services:
     env_file:
       - .env
     restart: unless-stopped
+    mem_limit: 512M
 
 volumes:
   postgres_data_dev:
