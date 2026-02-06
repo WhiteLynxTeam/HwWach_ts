@@ -2,13 +2,16 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { User } from './entities/user.entity';
 import { PendingRegistration } from './entities/pending-registration.entity';
+import { PendingChanges } from './entities/pending-changes.entity';
 import { UsersService } from './users.service';
 import { UsersController } from './users.controller';
+import { UserChangeRequestsController } from './user-change-requests.controller';
+import { RegistrationStatusController } from './registration-status.controller';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([User, PendingRegistration])],
+  imports: [TypeOrmModule.forFeature([User, PendingRegistration, PendingChanges])],
   providers: [UsersService],
-  controllers: [UsersController],
+  controllers: [UsersController, UserChangeRequestsController, RegistrationStatusController],
   exports: [UsersService],
 })
 export class UsersModule {
