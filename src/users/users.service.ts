@@ -516,25 +516,10 @@ export class UsersService implements OnModuleInit {
    * @returns массив запросов на изменение
    */
   async getAllChangeRequests(): Promise<PendingChanges[]> {
-    const requests = await this.changeRequestsRepository.find({
-      relations: ['approvedBy'], // Загружаем только approvedBy, requestedBy загрузим отдельно
+    return await this.changeRequestsRepository.find({
+      relations: ['approvedBy', 'requestedBy'],
       order: { requestedAt: 'DESC' },
     });
-
-    // Загружаем requestedBy отдельно, исключая поле password
-    for (const request of requests) {
-      if (request.requestedByUserId) {
-        const user = await this.usersRepository.findOne({
-          where: { id: request.requestedByUserId },
-          select: ['id', 'login', 'phone', 'lastName', 'firstName', 'middleName', 'position', 'role', 'isActive', 'createdAt', 'updatedAt'],
-        });
-        if (user) {
-          request.requestedBy = user;
-        }
-      }
-    }
-
-    return requests;
   }
 
   /**
@@ -545,22 +530,11 @@ export class UsersService implements OnModuleInit {
   async getChangeRequestById(id: string): Promise<PendingChanges> {
     const request = await this.changeRequestsRepository.findOne({
       where: { id },
-      relations: ['approvedBy'],
+      relations: ['approvedBy', 'requestedBy'],
     });
 
     if (!request) {
       throw new NotFoundException('Запрос на изменение не найден');
-    }
-
-    // Загружаем requestedBy отдельно, исключая поле password
-    if (request.requestedByUserId) {
-      const user = await this.usersRepository.findOne({
-        where: { id: request.requestedByUserId },
-        select: ['id', 'login', 'phone', 'lastName', 'firstName', 'middleName', 'position', 'role', 'isActive', 'createdAt', 'updatedAt'],
-      });
-      if (user) {
-        request.requestedBy = user;
-      }
     }
 
     return request;
@@ -653,22 +627,11 @@ export class UsersService implements OnModuleInit {
       // Загружаем обновленный запрос с правильным пользователем (без пароля)
       const finalRequest = await transactionalEntityManager.findOne(PendingChanges, {
         where: { id: updatedRequest.id },
-        relations: ['approvedBy'],
+        relations: ['approvedBy', 'requestedBy'],
       });
 
       if (!finalRequest) {
         throw new NotFoundException('Не удалось загрузить обновленный запрос');
-      }
-
-      // Загружаем requestedBy отдельно, исключая поле password
-      if (finalRequest && finalRequest.requestedByUserId) {
-        const user = await transactionalEntityManager.findOne(User, {
-          where: { id: finalRequest.requestedByUserId },
-          select: ['id', 'login', 'phone', 'lastName', 'firstName', 'middleName', 'position', 'role', 'isActive', 'createdAt', 'updatedAt'],
-        });
-        if (user) {
-          finalRequest.requestedBy = user;
-        }
       }
 
       return finalRequest;
