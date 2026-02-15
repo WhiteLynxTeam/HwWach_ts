@@ -15,7 +15,7 @@ export class PendingRegistration {
   // а храним их для истории. И пользователь не сможет зарегистрировать свой логин повторно,
   // если заявка была отклонена администратором
   @ApiProperty({ example: 'user_01' })
-  @Column({ length: 50 })
+  @Column({ length: 50, index: true })
   login: string;
 
   @ApiHideProperty()
@@ -56,7 +56,8 @@ export class PendingRegistration {
     type: 'enum',
     enum: RequestStatus,
     enumName: 'pending_registration_status_enum',
-    default: RequestStatus.PENDING
+    default: RequestStatus.PENDING,
+    index: true
   })
   status: RequestStatus;
 
@@ -74,7 +75,7 @@ export class PendingRegistration {
   processedAt?: Date;
 
   @ApiProperty({ description: 'Дата и время создания запроса' })
-  @CreateDateColumn({ name: 'created_at' })
+  @CreateDateColumn({ name: 'created_at', index: true })
   createdAt: Date;
 
   @ApiProperty({ description: 'Дата и время последнего обновления запроса' })

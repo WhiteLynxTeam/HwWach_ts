@@ -16,7 +16,7 @@ export class PendingChanges {
   @JoinColumn({ name: 'requested_by_user_id' })
   requestedBy: User;
 
-  @Column({ name: 'requested_by_user_id' })
+  @Column({ name: 'requested_by_user_id', index: true })
   requestedByUserId: string;
 
   @ApiPropertyOptional({ description: 'Новое значение firstName' })
@@ -51,6 +51,7 @@ export class PendingChanges {
     enum: RequestStatus,
     enumName: 'pending_changes_status_enum',
     default: RequestStatus.PENDING,
+    index: true
   })
   status: RequestStatus;
 
@@ -68,7 +69,7 @@ export class PendingChanges {
   processedAt?: Date;
 
   @ApiProperty({ description: 'Дата и время создания запроса' })
-  @CreateDateColumn({ name: 'created_at' })
+  @CreateDateColumn({ name: 'created_at', index: true })
   createdAt: Date;
 
   @ApiProperty({ description: 'Дата и время последнего обновления запроса' })

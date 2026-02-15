@@ -492,17 +492,16 @@ export class UsersService implements OnModuleInit {
       changeRequest.position = changes.position;
     }
 
-    // Если нет изменений, выбрасываем ошибку
+    // Если нет изменений в профиле, выбрасываем ошибку
+    // Проверяем только поля профиля, исключая login и password
     if (
-      !changeRequest.login &&
-      !changeRequest.password &&
       !changeRequest.firstName &&
       !changeRequest.lastName &&
       !changeRequest.middleName &&
       !changeRequest.phone &&
       !changeRequest.position
     ) {
-      throw new ConflictException('Нет изменений для сохранения');
+      throw new ConflictException('Нет изменений профиля для сохранения');
     }
 
     changeRequest.status = RequestStatus.PENDING;
