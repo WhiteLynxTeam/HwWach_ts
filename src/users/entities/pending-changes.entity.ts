@@ -12,21 +12,12 @@ export class PendingChanges {
   id: string;
 
   @ApiProperty({ description: 'Пользователь, который запросил изменение' })
-  @ManyToOne(() => User)
+  @ManyToOne(() => User )
   @JoinColumn({ name: 'requested_by_user_id' })
   requestedBy: User;
 
   @Column({ name: 'requested_by_user_id' })
   requestedByUserId: string;
-
-  // Отдельные поля для изменений, основанные на User entity
-  @ApiPropertyOptional({ description: 'Новое значение login' })
-  @Column({ type: 'varchar', length: 50, nullable: true })
-  login?: string;
-
-  @ApiPropertyOptional({ description: 'Новое значение password' })
-  @Column({ type: 'varchar', nullable: true })
-  password?: string;
 
   @ApiPropertyOptional({ description: 'Новое значение firstName' })
   @Column({ name: 'first_name', type: 'varchar', length: 50, nullable: true })
@@ -77,8 +68,8 @@ export class PendingChanges {
   processedAt?: Date;
 
   @ApiProperty({ description: 'Дата и время создания запроса' })
-  @CreateDateColumn({ name: 'requested_at' })
-  requestedAt: Date;
+  @CreateDateColumn({ name: 'created_at' })
+  createdAt: Date;
 
   @ApiProperty({ description: 'Дата и время последнего обновления запроса' })
   @UpdateDateColumn({ name: 'updated_at' })
