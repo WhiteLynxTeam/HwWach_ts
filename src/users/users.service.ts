@@ -1,9 +1,10 @@
 import { Injectable, UnauthorizedException, NotFoundException, ConflictException, OnModuleInit } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, DataSource } from 'typeorm';
 import { User, UserRole } from './entities/user.entity';
-import { PendingRegistration, RegistrationStatus } from './entities/pending-registration.entity';
-import { PendingChanges, ChangeStatus } from './entities/pending-changes.entity';
+import { PendingRegistration } from './entities/pending-registration.entity';
+import { PendingChanges } from './entities/pending-changes.entity';
+import { RequestStatus } from '../common/enums/request-status.enum';
 import * as bcrypt from 'bcrypt';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
@@ -18,6 +19,7 @@ export class UsersService implements OnModuleInit {
     private pendingRegistrationsRepository: Repository<PendingRegistration>,
     @InjectRepository(PendingChanges)
     private changeRequestsRepository: Repository<PendingChanges>,
+    private dataSource: DataSource,
   )  {
     console.log('🏗️ UsersService CONSTRUCTOR called');  // <--- Сработает ли?
   }
@@ -209,7 +211,7 @@ export class UsersService implements OnModuleInit {
    * @param userData - данные пользователя для регистрации
    * @returns созданный запрос на регистрацию
    */
-  async registerUser(userData: Partial<CreateUserDto>): Promise<Omit<PendingRegistration, 'passwordHash'>> {
+  async registerUser(userData: Partial<CreateUserDto>): Promise<Omit<PendingRegistration, 'password'>> {
     // Проверяем, существует ли уже пользователь с таким логином или телефоном
     const existingUser = await this.usersRepository.findOne({
       where: [
@@ -240,18 +242,18 @@ export class UsersService implements OnModuleInit {
 
     const pendingRegistration = new PendingRegistration();
     pendingRegistration.login = userData.login!;
-    pendingRegistration.passwordHash = hashedPassword;
+    pendingRegistration.password = hashedPassword;
     pendingRegistration.firstName = userData.firstName;
     pendingRegistration.lastName = userData.lastName;
     pendingRegistration.middleName = userData.middleName;
     pendingRegistration.phone = userData.phone;
     pendingRegistration.position = userData.position;
-    pendingRegistration.status = RegistrationStatus.PENDING;
+    pendingRegistration.status = RequestStatus.PENDING;
 
     const savedRegistration = await this.pendingRegistrationsRepository.save(pendingRegistration);
 
-    // Возвращаем объект без passwordHash
-    const { passwordHash, ...result } = savedRegistration;
+    // Возвращаем объект без password
+    const { password, ...result } = savedRegistration;
     return result;
   }
 
@@ -263,6 +265,7 @@ export class UsersService implements OnModuleInit {
    * @returns обновленный запрос на регистрацию
    */
   async approveRegistration(registrationId: string, approvedById: string, comment?: string): Promise<PendingRegistration> {
+    // Получаем данные регистрации вне транзакции
     const registration = await this.pendingRegistrationsRepository.findOne({
       where: { id: registrationId }
     });
@@ -271,7 +274,7 @@ export class UsersService implements OnModuleInit {
       throw new NotFoundException('Registration request not found');
     }
 
-    if (registration.status !== RegistrationStatus.PENDING) {
+    if (registration.status !== RequestStatus.PENDING) {
       throw new ConflictException('Registration request is not in pending status');
     }
 
@@ -284,28 +287,51 @@ export class UsersService implements OnModuleInit {
       throw new NotFoundException('Approving user not found');
     }
 
-    // Создаем нового пользователя из данных регистрации
-    const newUser = new User();
-    newUser.login = registration.login;
-    newUser.password = registration.passwordHash; // Сохраняем уже захэшированный пароль
-    newUser.firstName = registration.firstName;
-    newUser.lastName = registration.lastName;
-    newUser.middleName = registration.middleName;
-    newUser.phone = registration.phone;
-    newUser.position = registration.position;
-    newUser.role = UserRole.USER; // Новый пользователь получает роль USER по умолчанию
-    newUser.isActive = true;
+    // Выполняем транзакцию
+    const result = await this.dataSource.transaction(async (transactionalEntityManager) => {
+      // Повторная проверка статуса внутри транзакции с пессимистичной блокировкой
+      const freshRegistration = await transactionalEntityManager.findOne(PendingRegistration, {
+        where: { id: registrationId },
+        lock: { mode: 'pessimistic_write' } // Никто другой не сможет даже прочитать эту строку, пока мы не закончим
+      });
 
-    // Сохраняем нового пользователя
-    await this.usersRepository.save(newUser);
+      if (!freshRegistration) {
+        throw new NotFoundException('Registration request not found');
+      }
 
-    // Обновляем статус запроса на регистрацию
-    registration.status = RegistrationStatus.APPROVED;
-    registration.approvedByUser = approvingUser;
-    registration.approvalComment = comment;
-    registration.approvedAt = new Date();
+      if (freshRegistration.status !== RequestStatus.PENDING) {
+        throw new ConflictException('Registration request is already processed');
+      }
 
-    return await this.pendingRegistrationsRepository.save(registration);
+      // 1. Создаем пользователя
+      const newUser = transactionalEntityManager.create(User, {
+        login: freshRegistration.login,
+        password: freshRegistration.password,
+        firstName: freshRegistration.firstName,
+        lastName: freshRegistration.lastName,
+        middleName: freshRegistration.middleName,
+        phone: freshRegistration.phone,
+        position: freshRegistration.position,
+        role: UserRole.USER,
+        isActive: true
+      });
+      await transactionalEntityManager.save(newUser);
+
+      // 2. Обновляем статус заявки
+      await transactionalEntityManager.update(PendingRegistration, registrationId, {
+        status: RequestStatus.APPROVED,
+        approvedByUser: approvingUser,
+        approvalComment: comment,
+        approvedAt: new Date()
+      });
+
+      // Возвращаем обновленную регистрацию
+      return await transactionalEntityManager.findOne(PendingRegistration, {
+        where: { id: registrationId }
+      });
+    });
+
+    return result;
   }
 
   /**
@@ -323,14 +349,39 @@ export class UsersService implements OnModuleInit {
       throw new NotFoundException('Registration request not found');
     }
 
-    if (registration.status !== RegistrationStatus.PENDING) {
+    if (registration.status !== RequestStatus.PENDING) {
       throw new ConflictException('Registration request is not in pending status');
     }
 
-    registration.status = RegistrationStatus.REJECTED;
-    registration.rejectedReason = rejectedReason;
+    // Выполняем транзакцию
+    const result = await this.dataSource.transaction(async (transactionalEntityManager) => {
+      // Проверка статуса внутри транзакции с пессимистичной блокировкой
+      const freshRegistration = await transactionalEntityManager.findOne(PendingRegistration, {
+        where: { id: registrationId },
+        lock: { mode: 'pessimistic_write' } // Никто другой не сможет даже прочитать эту строку, пока мы не закончим
+      });
 
-    return await this.pendingRegistrationsRepository.save(registration);
+      if (!freshRegistration) {
+        throw new NotFoundException('Registration request not found');
+      }
+
+      if (freshRegistration.status !== RequestStatus.PENDING) {
+        throw new ConflictException('Registration request is already processed');
+      }
+
+      // Обновляем статус заявки
+      await transactionalEntityManager.update(PendingRegistration, registrationId, {
+        status: RequestStatus.REJECTED,
+        rejectedReason: rejectedReason
+      });
+
+      // Возвращаем обновленную регистрацию
+      return await transactionalEntityManager.findOne(PendingRegistration, {
+        where: { id: registrationId }
+      });
+    });
+
+    return result;
   }
 
   /**
@@ -339,7 +390,7 @@ export class UsersService implements OnModuleInit {
    */
   async getPendingRegistrations(): Promise<PendingRegistration[]> {
     return await this.pendingRegistrationsRepository.find({
-      where: { status: RegistrationStatus.PENDING },
+      where: { status: RequestStatus.PENDING },
       relations: ['approvedByUser']
     });
   }
@@ -403,7 +454,7 @@ export class UsersService implements OnModuleInit {
     const existingRequest = await this.changeRequestsRepository.findOne({
       where: {
         requestedByUserId: userId,
-        status: ChangeStatus.PENDING,
+        status: RequestStatus.PENDING,
       },
     });
 
@@ -454,7 +505,7 @@ export class UsersService implements OnModuleInit {
       throw new ConflictException('Нет изменений для сохранения');
     }
 
-    changeRequest.status = ChangeStatus.PENDING;
+    changeRequest.status = RequestStatus.PENDING;
 
     console.log('Saving change request for user ID:', userId);
     return await this.changeRequestsRepository.save(changeRequest);
@@ -532,76 +583,98 @@ export class UsersService implements OnModuleInit {
       throw new NotFoundException('Запрос на изменение не найден');
     }
 
-    if (request.status !== ChangeStatus.PENDING) {
+    if (request.status !== RequestStatus.PENDING) {
       throw new ConflictException('Запрос на изменение уже обработан');
     }
 
-    // Обновляем данные пользователя с учетом отдельных полей
-    if (request.login) {
-      request.requestedBy.login = request.login;
-    }
-    if (request.password) {
-      request.requestedBy.password = request.password;
-    }
-    if (request.firstName) {
-      request.requestedBy.firstName = request.firstName;
-    }
-    if (request.lastName) {
-      request.requestedBy.lastName = request.lastName;
-    }
-    if (request.middleName) {
-      request.requestedBy.middleName = request.middleName;
-    }
-    if (request.phone) {
-      request.requestedBy.phone = request.phone;
-    }
-    if (request.position) {
-      request.requestedBy.position = request.position;
-    }
-
-    await this.usersRepository.save(request.requestedBy);
-
-    // Обновляем статус запроса
-    request.status = ChangeStatus.APPROVED;
-    request.approvedById = approvedById;
-
-    // Загружаем информацию о пользователе, который одобрил запрос
-    if (approvedById) {
-      const approvingUser = await this.usersRepository.findOne({
-        where: { id: approvedById },
-        select: ['id', 'login', 'firstName', 'lastName'],
+    // Выполняем транзакцию
+    const result = await this.dataSource.transaction(async (transactionalEntityManager) => {
+      // Проверка статуса внутри транзакции с пессимистичной блокировкой
+      const freshRequest = await transactionalEntityManager.findOne(PendingChanges, {
+        where: { id: requestId },
+        lock: { mode: 'pessimistic_write' }, // Никто другой не сможет даже прочитать эту строку, пока мы не закончим
+        relations: ['requestedBy']
       });
-      if (approvingUser) {
-        request.approvedBy = approvingUser;
+
+      if (!freshRequest) {
+        throw new NotFoundException('Запрос на изменение не найден');
       }
-    }
 
-    request.approvalComment = comment;
-    request.updatedAt = new Date();
+      if (freshRequest.status !== RequestStatus.PENDING) {
+        throw new ConflictException('Запрос на изменение уже обработан');
+      }
 
-    // Загружаем обновленный запрос с правильным пользователем (без пароля)
-    const updatedRequest = await this.changeRequestsRepository.findOne({
-      where: { id: request.id },
-      relations: ['approvedBy'],
+      // Обновляем данные пользователя с учетом отдельных полей
+      if (freshRequest.login) {
+        freshRequest.requestedBy.login = freshRequest.login;
+      }
+      if (freshRequest.password) {
+        freshRequest.requestedBy.password = freshRequest.password;
+      }
+      if (freshRequest.firstName) {
+        freshRequest.requestedBy.firstName = freshRequest.firstName;
+      }
+      if (freshRequest.lastName) {
+        freshRequest.requestedBy.lastName = freshRequest.lastName;
+      }
+      if (freshRequest.middleName) {
+        freshRequest.requestedBy.middleName = freshRequest.middleName;
+      }
+      if (freshRequest.phone) {
+        freshRequest.requestedBy.phone = freshRequest.phone;
+      }
+      if (freshRequest.position) {
+        freshRequest.requestedBy.position = freshRequest.position;
+      }
+
+      await transactionalEntityManager.save(freshRequest.requestedBy);
+
+      // Обновляем статус запроса
+      freshRequest.status = RequestStatus.APPROVED;
+      freshRequest.approvedById = approvedById;
+
+      // Загружаем информацию о пользователе, который одобрил запрос
+      if (approvedById) {
+        const approvingUser = await transactionalEntityManager.findOne(User, {
+          where: { id: approvedById },
+          select: ['id', 'login', 'firstName', 'lastName'],
+        });
+        if (approvingUser) {
+          freshRequest.approvedBy = approvingUser;
+        }
+      }
+
+      freshRequest.approvalComment = comment;
+      freshRequest.updatedAt = new Date();
+
+      // Сохраняем обновленный запрос
+      const updatedRequest = await transactionalEntityManager.save(freshRequest);
+
+      // Загружаем обновленный запрос с правильным пользователем (без пароля)
+      const finalRequest = await transactionalEntityManager.findOne(PendingChanges, {
+        where: { id: updatedRequest.id },
+        relations: ['approvedBy'],
+      });
+
+      if (!finalRequest) {
+        throw new NotFoundException('Не удалось загрузить обновленный запрос');
+      }
+
+      // Загружаем requestedBy отдельно, исключая поле password
+      if (finalRequest && finalRequest.requestedByUserId) {
+        const user = await transactionalEntityManager.findOne(User, {
+          where: { id: finalRequest.requestedByUserId },
+          select: ['id', 'login', 'phone', 'lastName', 'firstName', 'middleName', 'position', 'role', 'isActive', 'createdAt', 'updatedAt'],
+        });
+        if (user) {
+          finalRequest.requestedBy = user;
+        }
+      }
+
+      return finalRequest;
     });
 
-      // ✅ Добавь проверку на null
-  if (!updatedRequest) {
-    throw new NotFoundException('Не удалось загрузить обновленный запрос');
-  }
-
-    // Загружаем requestedBy отдельно, исключая поле password
-    if (updatedRequest && updatedRequest.requestedByUserId) {
-      const user = await this.usersRepository.findOne({
-        where: { id: updatedRequest.requestedByUserId },
-        select: ['id', 'login', 'phone', 'lastName', 'firstName', 'middleName', 'position', 'role', 'isActive', 'createdAt', 'updatedAt'],
-      });
-      if (user) {
-        updatedRequest.requestedBy = user;
-      }
-    }
-
-    return updatedRequest;
+    return result;
   }
 
   /**
@@ -619,14 +692,39 @@ export class UsersService implements OnModuleInit {
       throw new NotFoundException('Запрос на изменение не найден');
     }
 
-    if (request.status !== ChangeStatus.PENDING) {
+    if (request.status !== RequestStatus.PENDING) {
       throw new ConflictException('Запрос на изменение уже обработан');
     }
 
-    request.status = ChangeStatus.REJECTED;
-    request.rejectedReason = reason;
-    request.updatedAt = new Date();
+    // Выполняем транзакцию
+    const result = await this.dataSource.transaction(async (transactionalEntityManager) => {
+      // Проверка статуса внутри транзакции с пессимистичной блокировкой
+      const freshRequest = await transactionalEntityManager.findOne(PendingChanges, {
+        where: { id: requestId },
+        lock: { mode: 'pessimistic_write' } // Никто другой не сможет даже прочитать эту строку, пока мы не закончим
+      });
 
-    return await this.changeRequestsRepository.save(request);
+      if (!freshRequest) {
+        throw new NotFoundException('Запрос на изменение не найден');
+      }
+
+      if (freshRequest.status !== RequestStatus.PENDING) {
+        throw new ConflictException('Запрос на изменение уже обработан');
+      }
+
+      // Обновляем статус запроса
+      await transactionalEntityManager.update(PendingChanges, requestId, {
+        status: RequestStatus.REJECTED,
+        rejectedReason: reason,
+        updatedAt: new Date()
+      });
+
+      // Возвращаем обновленный запрос
+      return await transactionalEntityManager.findOne(PendingChanges, {
+        where: { id: requestId }
+      });
+    });
+
+    return result;
   }
 }

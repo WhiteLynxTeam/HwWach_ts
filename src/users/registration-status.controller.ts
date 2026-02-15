@@ -27,9 +27,9 @@ export class RegistrationStatusController {
   @ApiResponse({ status: 404, description: 'Registration request not found.' })
   async getRegistrationStatus(
     @Param('id') id: string
-  ): Promise<Omit<PendingRegistration, 'passwordHash'>> {
+  ): Promise<Omit<PendingRegistration, 'password'>> {
     const registration = await this.usersService.getRegistrationStatusById(id);
-    const { passwordHash, ...result } = registration;
+    const { password, ...result } = registration;
     return result;
   }
 }
