@@ -12,7 +12,7 @@ export class PendingChanges {
   id: string;
 
   @ApiProperty({ description: 'Пользователь, который запросил изменение' })
-  @ManyToOne(() => User, { eager: true })
+  @ManyToOne(() => User)
   @JoinColumn({ name: 'requested_by_user_id' })
   requestedBy: User;
 
