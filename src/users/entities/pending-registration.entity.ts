@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional, ApiHideProperty } from '@nestjs/swagger';
-import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, UpdateDateColumn, ManyToOne, JoinColumn } from 'typeorm';
+import { Entity, Column, Index, PrimaryGeneratedColumn, CreateDateColumn, UpdateDateColumn, ManyToOne, JoinColumn } from 'typeorm';
 import { User } from './user.entity';
 import { RequestStatus } from '../../common/enums/request-status.enum';
 
@@ -14,8 +14,9 @@ export class PendingRegistration {
   // Почему поле логина не уникальное? Потому что мы не удаляем отклоненные заявки на регистрацию,
   // а храним их для истории. И пользователь не сможет зарегистрировать свой логин повторно,
   // если заявка была отклонена администратором
+  @Index()
   @ApiProperty({ example: 'user_01' })
-  @Column({ length: 50, index: true })
+  @Column({ length: 50 })
   login: string;
 
   @ApiHideProperty()
@@ -45,6 +46,7 @@ export class PendingRegistration {
   @Column({ type: 'varchar', length: 100, nullable: true })
   position?: string;
 
+  @Index()
   @ApiProperty({
   enum: RequestStatus,
   enumName: 'RequestStatus',
@@ -55,9 +57,8 @@ export class PendingRegistration {
   @Column({
     type: 'enum',
     enum: RequestStatus,
-    enumName: 'pending_registration_status_enum',
+    enumName: 'request_status_enum',
     default: RequestStatus.PENDING,
-    index: true
   })
   status: RequestStatus;
 
@@ -74,11 +75,20 @@ export class PendingRegistration {
   @Column({ name: 'processed_at', type: 'timestamp', nullable: true })
   processedAt?: Date;
 
-  @ApiProperty({ description: 'Дата и время создания запроса' })
-  @CreateDateColumn({ name: 'created_at', index: true })
+  @Index()
+  @ApiProperty({ 
+    description: 'Дата и время создания записи', 
+    example: '2023-10-27T10:00:00.000Z',
+    readOnly: true
+  })
+  @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 
-  @ApiProperty({ description: 'Дата и время последнего обновления запроса' })
+  @ApiProperty({ 
+    description: 'Дата и время последнего обновления записи', 
+    example: '2023-10-27T12:00:00.000Z',
+    readOnly: true 
+  })
   @UpdateDateColumn({ name: 'updated_at' })
   updatedAt: Date;
 }

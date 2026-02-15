@@ -1,4 +1,4 @@
-import { Entity, Column, PrimaryGeneratedColumn, ManyToOne, CreateDateColumn, UpdateDateColumn, JoinColumn } from 'typeorm';
+import { Entity, Column, Index, PrimaryGeneratedColumn, ManyToOne, CreateDateColumn, UpdateDateColumn, JoinColumn } from 'typeorm';
 import { User } from './user.entity';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { RequestStatus } from '../../common/enums/request-status.enum';
@@ -16,7 +16,8 @@ export class PendingChanges {
   @JoinColumn({ name: 'requested_by_user_id' })
   requestedBy: User;
 
-  @Column({ name: 'requested_by_user_id', index: true })
+  @Index()
+  @Column({ name: 'requested_by_user_id' })
   requestedByUserId: string;
 
   @ApiPropertyOptional({ description: 'Новое значение firstName' })
@@ -39,6 +40,7 @@ export class PendingChanges {
   @Column({ type: 'varchar', length: 100, nullable: true })
   position?: string;
 
+  @Index()
   @ApiProperty({
     enum: RequestStatus,
     enumName: 'RequestStatus',
@@ -49,9 +51,8 @@ export class PendingChanges {
   @Column({
     type: 'enum',
     enum: RequestStatus,
-    enumName: 'pending_changes_status_enum',
+    enumName: 'request_status_enum',
     default: RequestStatus.PENDING,
-    index: true
   })
   status: RequestStatus;
 
@@ -68,11 +69,20 @@ export class PendingChanges {
   @Column({ name: 'processed_at', type: 'timestamp', nullable: true })
   processedAt?: Date;
 
-  @ApiProperty({ description: 'Дата и время создания запроса' })
-  @CreateDateColumn({ name: 'created_at', index: true })
+  @Index()
+  @ApiProperty({ 
+    description: 'Дата и время создания запроса', 
+    example: '2023-10-27T10:00:00.000Z',
+    readOnly: true
+  })
+  @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 
-  @ApiProperty({ description: 'Дата и время последнего обновления запроса' })
+  @ApiProperty({ 
+    description: 'Дата и время последнего обновления запроса', 
+    example: '2023-10-27T10:00:00.000Z',
+    readOnly: true
+  })
   @UpdateDateColumn({ name: 'updated_at' })
   updatedAt: Date;
 }
