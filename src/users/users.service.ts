@@ -98,6 +98,7 @@ export class UsersService implements OnModuleInit {
   }
 
   /**
+   * [yellow flag] - нужны ли нам эти функции?
    * Возвращает список всех пользователей в системе
    * @returns массив пользователей
    */
@@ -108,6 +109,7 @@ export class UsersService implements OnModuleInit {
   }
 
   /**
+   * [yellow flag] - нужны ли нам эти функции?
    * Возвращает пользователя по его ID
    * @param id - идентификатор пользователя
    * @returns найденный пользователь или ошибка
@@ -126,6 +128,7 @@ export class UsersService implements OnModuleInit {
   }
 
   /**
+   * [yellow flag] - нужны ли нам эти функции?
    * Находит пользователя по логину
    * @param login - логин пользователя
    * @returns найденный пользователь или null
