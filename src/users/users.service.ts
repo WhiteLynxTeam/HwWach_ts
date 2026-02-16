@@ -321,14 +321,20 @@ export class UsersService implements OnModuleInit {
       await transactionalEntityManager.update(PendingRegistration, registrationId, {
         status: RequestStatus.APPROVED,
         approvedByUser: approvingUser,
-        approvalComment: comment,
-        approvedAt: new Date()
+        adminComment: comment,
+        processedAt: new Date()
       });
 
       // Возвращаем обновленную регистрацию
-      return await transactionalEntityManager.findOne(PendingRegistration, {
+      const result = await transactionalEntityManager.findOne(PendingRegistration, {
         where: { id: registrationId }
       });
+      
+      if (!result) {
+        throw new NotFoundException('Registration request not found');
+      }
+      
+      return result;
     });
 
     return result;
@@ -372,13 +378,20 @@ export class UsersService implements OnModuleInit {
       // Обновляем статус заявки
       await transactionalEntityManager.update(PendingRegistration, registrationId, {
         status: RequestStatus.REJECTED,
-        rejectedReason: rejectedReason
+        adminComment: rejectedReason,
+        processedAt: new Date()
       });
 
       // Возвращаем обновленную регистрацию
-      return await transactionalEntityManager.findOne(PendingRegistration, {
+      const result = await transactionalEntityManager.findOne(PendingRegistration, {
         where: { id: registrationId }
       });
+      
+      if (!result) {
+        throw new NotFoundException('Registration request not found');
+      }
+      
+      return result;
     });
 
     return result;
@@ -427,9 +440,8 @@ export class UsersService implements OnModuleInit {
         'status',
         'createdAt',
         'updatedAt',
-        'approvalComment',
-        'rejectedReason',
-        'approvedAt'
+        'adminComment',
+        'processedAt'
       ]
     });
 
@@ -468,14 +480,6 @@ export class UsersService implements OnModuleInit {
     changeRequest.requestedByUserId = userId;
 
     // Устанавливаем значения полей, если они отличаются от текущих значений пользователя
-    if (changes.login && user.login !== changes.login) {
-      changeRequest.login = changes.login;
-    }
-    if (changes.password && changes.password) {
-      // Хэшируем пароль перед сохранением
-      const saltRounds = process.env.BCRYPT_ROUNDS ? parseInt(process.env.BCRYPT_ROUNDS) : 10;
-      changeRequest.password = await bcrypt.hash(changes.password, saltRounds);
-    }
     if (changes.firstName && user.firstName !== changes.firstName) {
       changeRequest.firstName = changes.firstName;
     }
@@ -493,7 +497,6 @@ export class UsersService implements OnModuleInit {
     }
 
     // Если нет изменений в профиле, выбрасываем ошибку
-    // Проверяем только поля профиля, исключая login и password
     if (
       !changeRequest.firstName &&
       !changeRequest.lastName &&
@@ -517,7 +520,7 @@ export class UsersService implements OnModuleInit {
   async getAllChangeRequests(): Promise<PendingChanges[]> {
     return await this.changeRequestsRepository.find({
       relations: ['approvedBy', 'requestedBy'],
-      order: { requestedAt: 'DESC' },
+      order: { createdAt: 'DESC' },
     });
   }
 
@@ -578,12 +581,6 @@ export class UsersService implements OnModuleInit {
       }
 
       // Обновляем данные пользователя с учетом отдельных полей
-      if (freshRequest.login) {
-        freshRequest.requestedBy.login = freshRequest.login;
-      }
-      if (freshRequest.password) {
-        freshRequest.requestedBy.password = freshRequest.password;
-      }
       if (freshRequest.firstName) {
         freshRequest.requestedBy.firstName = freshRequest.firstName;
       }
@@ -604,20 +601,8 @@ export class UsersService implements OnModuleInit {
 
       // Обновляем статус запроса
       freshRequest.status = RequestStatus.APPROVED;
-      freshRequest.approvedById = approvedById;
-
-      // Загружаем информацию о пользователе, который одобрил запрос
-      if (approvedById) {
-        const approvingUser = await transactionalEntityManager.findOne(User, {
-          where: { id: approvedById },
-          select: ['id', 'login', 'firstName', 'lastName'],
-        });
-        if (approvingUser) {
-          freshRequest.approvedBy = approvingUser;
-        }
-      }
-
-      freshRequest.approvalComment = comment;
+      freshRequest.adminComment = comment;
+      freshRequest.processedAt = new Date();
       freshRequest.updatedAt = new Date();
 
       // Сохраняем обновленный запрос
@@ -677,14 +662,21 @@ export class UsersService implements OnModuleInit {
       // Обновляем статус запроса
       await transactionalEntityManager.update(PendingChanges, requestId, {
         status: RequestStatus.REJECTED,
-        rejectedReason: reason,
+        adminComment: reason,
+        processedAt: new Date(),
         updatedAt: new Date()
       });
 
       // Возвращаем обновленный запрос
-      return await transactionalEntityManager.findOne(PendingChanges, {
+      const result = await transactionalEntityManager.findOne(PendingChanges, {
         where: { id: requestId }
       });
+      
+      if (!result) {
+        throw new NotFoundException('Change request not found');
+      }
+      
+      return result;
     });
 
     return result;

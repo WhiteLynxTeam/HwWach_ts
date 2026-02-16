@@ -1,6 +1,9 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
+import { PendingChanges } from './users/entities/pending-changes.entity';
+import { PendingRegistration } from './users/entities/pending-registration.entity';
+import { User } from './users/entities/user.entity';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -12,7 +15,10 @@ async function bootstrap() {
     .addBearerAuth()
     .build();
 
-  const document = SwaggerModule.createDocument(app, config);
+const document = SwaggerModule.createDocument(app, config, {
+  extraModels: [PendingChanges, PendingRegistration, User], // Явно указываем все сущности
+});
+SwaggerModule.setup('api', app, document);
   SwaggerModule.setup('api', app, document);
 
   await app.listen(process.env.PORT ?? 3033);

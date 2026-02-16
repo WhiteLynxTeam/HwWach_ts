@@ -1,4 +1,4 @@
-import { Entity, Column, Index, PrimaryGeneratedColumn, ManyToOne, CreateDateColumn, UpdateDateColumn, JoinColumn } from 'typeorm';
+import { Entity, Check, Column, Index, PrimaryGeneratedColumn, ManyToOne, CreateDateColumn, UpdateDateColumn, JoinColumn } from 'typeorm';
 import { User } from './user.entity';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { RequestStatus } from '../../common/enums/request-status.enum';
@@ -6,6 +6,13 @@ import { RequestStatus } from '../../common/enums/request-status.enum';
 export type ChangeStatus = RequestStatus;
 
 @Entity('pending_changes')
+@Check(`
+  "first_name" IS NOT NULL OR 
+  "last_name" IS NOT NULL OR 
+  "middle_name" IS NOT NULL OR 
+  "phone" IS NOT NULL OR 
+  "position" IS NOT NULL
+`)
 export class PendingChanges {
   @ApiProperty({ example: '550e8400-e29b-41d4-a716-446655440000' })
   @PrimaryGeneratedColumn('uuid')
