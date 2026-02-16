@@ -191,7 +191,12 @@ export class UsersService implements OnModuleInit {
    * @returns данные пользователя без пароля или null
    */
   async validateUser(login: string, password: string): Promise<Omit<User, 'password'> | null> {
-    const user = await this.findByLogin(login);
+    const user = await this.usersRepository
+      .createQueryBuilder('user')
+      .where('user.login = :login', { login })
+      .addSelect('user.password')
+      .getOne();
+
     if (!user || !user.isActive) {
       return null;
     }
@@ -224,11 +229,12 @@ export class UsersService implements OnModuleInit {
       throw new ConflictException('User with this login or phone already exists');
     }
 
-    // Проверяем, не существует ли уже запрос на регистрацию с таким логином или телефоном
+    // Проверяем, не существует ли уже ЗАЯВКА НА РАССМОТРЕНИИ с таким логином или телефоном
+    // Отклоненные заявки не блокируют повторную регистрацию
     const existingPendingRegistration = await this.pendingRegistrationsRepository.findOne({
       where: [
-        { login: userData.login },
-        { phone: userData.phone }
+        { login: userData.login, status: RequestStatus.PENDING },
+        { phone: userData.phone, status: RequestStatus.PENDING }
       ],
     });
 
@@ -290,10 +296,12 @@ export class UsersService implements OnModuleInit {
     // Выполняем транзакцию
     const result = await this.dataSource.transaction(async (transactionalEntityManager) => {
       // Повторная проверка статуса внутри транзакции с пессимистичной блокировкой
-      const freshRegistration = await transactionalEntityManager.findOne(PendingRegistration, {
-        where: { id: registrationId },
-        lock: { mode: 'pessimistic_write' } // Никто другой не сможет даже прочитать эту строку, пока мы не закончим
-      });
+      const freshRegistration = await transactionalEntityManager
+        .createQueryBuilder(PendingRegistration, 'pr')
+        .where('pr.id = :id', { id: registrationId })
+        .addSelect('pr.password')
+        .setLock('pessimistic_write')
+        .getOne();
 
       if (!freshRegistration) {
         throw new NotFoundException('Registration request not found');
@@ -329,11 +337,11 @@ export class UsersService implements OnModuleInit {
       const result = await transactionalEntityManager.findOne(PendingRegistration, {
         where: { id: registrationId }
       });
-      
+
       if (!result) {
         throw new NotFoundException('Registration request not found');
       }
-      
+
       return result;
     });
 
