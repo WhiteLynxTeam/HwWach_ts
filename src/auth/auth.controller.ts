@@ -46,7 +46,7 @@ export class AuthController {
     description: 'Registration data',
     type: RegisterDto,
   })
-  async register(@Body() registerDto: RegisterDto): Promise<Omit<PendingRegistration, 'passwordHash'>> {
+  async register(@Body() registerDto: RegisterDto): Promise<Omit<PendingRegistration, 'password'>> {
     return this.usersService.registerUser(registerDto);
   }
 

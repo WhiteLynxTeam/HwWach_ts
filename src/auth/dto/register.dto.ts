@@ -8,10 +8,10 @@ export class RegisterDto {
   @Length(3, 50)
   login: string;
 
-  @ApiProperty({ example: 'strongPassword123!', description: 'Пароль (6-100 символов)' })
+  @ApiProperty({ example: 'strongPassword123!', description: 'Пароль (4-100 символов)' })
   @IsString()
   @IsNotEmpty()
-  @Length(6, 100)
+  @Length(4, 100)
   password: string;
 
   @ApiProperty({ example: '+375291234567', description: 'Номер телефона (опционально)', required: false })

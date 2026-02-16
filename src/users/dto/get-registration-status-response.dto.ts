@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { RegistrationStatus } from '../entities/pending-registration.entity';
+import { RequestStatus } from '../../common/enums/request-status.enum';
 
 export class GetRegistrationStatusResponseDto {
   @ApiProperty({
@@ -16,10 +16,10 @@ export class GetRegistrationStatusResponseDto {
 
   @ApiProperty({
     description: 'Current status of the registration request',
-    enum: RegistrationStatus,
-    example: RegistrationStatus.PENDING
+    enum: RequestStatus,
+    example: RequestStatus.PENDING
   })
-  status: RegistrationStatus;
+  status: RequestStatus;
 
   @ApiProperty({
     description: 'Timestamp when the registration was created',

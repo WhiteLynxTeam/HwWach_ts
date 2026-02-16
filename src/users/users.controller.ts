@@ -16,12 +16,13 @@ import { AuthGuard } from '@nestjs/passport';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
 import { UserRole } from './entities/user.entity';
-import { ApiBearerAuth, ApiTags, ApiResponse, ApiOperation } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiTags, ApiResponse, ApiOperation, ApiExtraModels } from '@nestjs/swagger';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { PendingRegistration } from './entities/pending-registration.entity';
 
 @ApiTags('Users')
+@ApiExtraModels(PendingRegistration)
 @Controller('users')
 @UseGuards(AuthGuard('jwt'), RolesGuard)
 export class UsersController {
@@ -91,9 +92,9 @@ export class UsersController {
   @ApiOperation({ summary: 'Get all pending registrations (Admin only)' })
   @ApiResponse({ status: 200, description: 'Return all pending registrations.' })
   @ApiResponse({ status: 403, description: 'Forbidden.' })
-  async getPendingRegistrations(): Promise<Array<Omit<PendingRegistration, 'passwordHash'>>> {
+  async getPendingRegistrations(): Promise<Array<Omit<PendingRegistration, 'password'>>> {
     const registrations = await this.usersService.getPendingRegistrations();
-    return registrations.map(({ passwordHash, ...rest }) => rest);
+    return registrations.map(({ password, ...rest }) => rest);
   }
 
   @Get('registrations/:id')
@@ -103,9 +104,9 @@ export class UsersController {
   @ApiResponse({ status: 200, description: 'Return the pending registration.' })
   @ApiResponse({ status: 403, description: 'Forbidden.' })
   @ApiResponse({ status: 404, description: 'Registration request not found.' })
-  async getRegistrationById(@Param('id') id: string): Promise<Omit<PendingRegistration, 'passwordHash'>> {
+  async getRegistrationById(@Param('id') id: string): Promise<Omit<PendingRegistration, 'password'>> {
     const registration = await this.usersService.getRegistrationById(id);
-    const { passwordHash, ...result } = registration;
+    const { password, ...result } = registration;
     return result;
   }
 
@@ -121,9 +122,9 @@ export class UsersController {
     @Param('id') id: string,
     @Body('comment') comment?: string,
     @Request() req?: any
-  ): Promise<Omit<PendingRegistration, 'passwordHash'>> {
+  ): Promise<Omit<PendingRegistration, 'password'>> {
     const registration = await this.usersService.approveRegistration(id, req?.user?.id, comment);
-    const { passwordHash, ...result } = registration;
+    const { password, ...result } = registration;
     return result;
   }
 
@@ -138,9 +139,9 @@ export class UsersController {
   async rejectRegistration(
     @Param('id') id: string,
     @Body('reason') reason?: string
-  ): Promise<Omit<PendingRegistration, 'passwordHash'>> {
+  ): Promise<Omit<PendingRegistration, 'password'>> {
     const registration = await this.usersService.rejectRegistration(id, reason);
-    const { passwordHash, ...result } = registration;
+    const { password, ...result } = registration;
     return result;
   }
 }

@@ -1,119 +1,95 @@
-import { Entity, Column, PrimaryGeneratedColumn, ManyToOne, CreateDateColumn, UpdateDateColumn, JoinColumn } from 'typeorm';
+import { Entity, Check, Column, Index, PrimaryGeneratedColumn, ManyToOne, CreateDateColumn, UpdateDateColumn, JoinColumn } from 'typeorm';
 import { User } from './user.entity';
-import { IsEnum, IsOptional, IsString, IsPhoneNumber, Length, Matches } from 'class-validator';
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { RequestStatus } from '../../common/enums/request-status.enum';
 
-export enum ChangeStatus {
-  PENDING = 'PENDING',
-  APPROVED = 'APPROVED',
-  REJECTED = 'REJECTED',
-}
+export type ChangeStatus = RequestStatus;
 
 @Entity('pending_changes')
+@Check(`
+  "first_name" IS NOT NULL OR 
+  "last_name" IS NOT NULL OR 
+  "middle_name" IS NOT NULL OR 
+  "phone" IS NOT NULL OR 
+  "position" IS NOT NULL
+`)
 export class PendingChanges {
+  @ApiProperty({ example: '550e8400-e29b-41d4-a716-446655440000' })
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
   @ApiProperty({ description: 'Пользователь, который запросил изменение' })
-  @ManyToOne(() => User, { eager: true })
+  @ManyToOne(() => User )
   @JoinColumn({ name: 'requested_by_user_id' })
   requestedBy: User;
 
+  @Index()
   @Column({ name: 'requested_by_user_id' })
   requestedByUserId: string;
 
-  // Отдельные поля для изменений, основанные на User entity
-  @ApiProperty({ description: 'Новое значение login', required: false })
-  @Column({ type: 'varchar', length: 50, nullable: true })
-  @IsString()
-  @IsOptional()
-  @Length(3, 50)
-  login?: string;
-
-  @ApiProperty({ description: 'Новое значение password', required: false })
-  @Column({ type: 'varchar', nullable: true })
-  @IsString()
-  @IsOptional()
-  @Length(6, 100)
-  password?: string;
-
-  @ApiProperty({ description: 'Новое значение firstName', required: false })
+  @ApiPropertyOptional({ description: 'Новое значение firstName' })
   @Column({ name: 'first_name', type: 'varchar', length: 50, nullable: true })
-  @IsString()
-  @IsOptional()
-  @Length(2, 50)
   firstName?: string;
 
-  @ApiProperty({ description: 'Новое значение lastName', required: false })
+  @ApiPropertyOptional({ description: 'Новое значение lastName' })
   @Column({ name: 'last_name', type: 'varchar', length: 50, nullable: true })
-  @IsString()
-  @IsOptional()
-  @Length(2, 50)
   lastName?: string;
 
-  @ApiProperty({ description: 'Новое значение middleName', required: false })
+  @ApiPropertyOptional({ description: 'Новое значение middleName' })
   @Column({ name: 'middle_name', type: 'varchar', length: 50, nullable: true })
-  @IsString()
-  @IsOptional()
-  @Length(2, 50)
   middleName?: string;
 
-  @ApiProperty({ description: 'Новое значение phone', required: false })
+  @ApiPropertyOptional({ description: 'Новое значение phone' })
   @Column({ type: 'varchar', length: 16, nullable: true })
-  @IsString()
-  @IsOptional()
-  @Matches(/^\+\d{1,15}$/, {
-    message: 'Phone must start with + and contain only digits'
-  })
   phone?: string;
 
-  @ApiProperty({ description: 'Новое значение position', required: false })
+  @ApiPropertyOptional({ description: 'Новое значение position' })
   @Column({ type: 'varchar', length: 100, nullable: true })
-  @IsString()
-  @IsOptional()
-  @Length(3, 100)
   position?: string;
 
+  @Index()
   @ApiProperty({
-    enum: ChangeStatus,
+    enum: RequestStatus,
+    enumName: 'RequestStatus',
+    default: RequestStatus.PENDING,
     description: 'Статус запроса на изменение',
-    default: ChangeStatus.PENDING
+    example: RequestStatus.PENDING
   })
   @Column({
     type: 'enum',
-    enum: ChangeStatus,
-    default: ChangeStatus.PENDING,
+    enum: RequestStatus,
+    enumName: 'request_status_enum',
+    default: RequestStatus.PENDING,
   })
-  @IsEnum(ChangeStatus)
-  status: ChangeStatus;
+  status: RequestStatus;
 
-  @ApiProperty({ description: 'ID пользователя, который одобрил запрос (если применимо)', required: false })
-  @Column({ name: 'approved_by_user_id', nullable: true })
-  @IsOptional()
-  approvedById?: string;
-
-  @ApiProperty({ description: 'Пользователь, который одобрил запрос (если применимо)', required: false })
-  @ManyToOne(() => User, { eager: true, nullable: true })
+  @ApiPropertyOptional({ type: () => User, description: 'Кто из админов обработал заявку' })
+  @ManyToOne(() => User, { nullable: true })
   @JoinColumn({ name: 'approved_by_user_id' })
-  approvedBy?: User;
+  approvedByUser?: User;
 
-  @ApiProperty({ description: 'Комментарий к одобрению запроса', required: false })
-  @Column({ name: 'approval_comment', nullable: true })
-  @IsString()
-  @IsOptional()
-  approvalComment?: string;
+  @ApiPropertyOptional({ description: 'Комментарий администратора (причина отказа или заметка при одобрении)' })
+  @Column({ name: 'admin_comment', type: 'text', nullable: true })
+  adminComment?: string;
 
-  @ApiProperty({ description: 'Причина отказа в запросе', required: false })
-  @Column({ name: 'rejected_reason', nullable: true })
-  @IsString()
-  @IsOptional()
-  rejectedReason?: string;
+  @ApiPropertyOptional({ description: 'Когда была одобрена или отклонена' })
+  @Column({ name: 'processed_at', type: 'timestamp', nullable: true })
+  processedAt?: Date;
 
-  @ApiProperty({ description: 'Дата и время создания запроса' })
-  @CreateDateColumn({ name: 'requested_at' })
-  requestedAt: Date;
+  @Index()
+  @ApiProperty({ 
+    description: 'Дата и время создания запроса', 
+    example: '2023-10-27T10:00:00.000Z',
+    readOnly: true
+  })
+  @CreateDateColumn({ name: 'created_at' })
+  createdAt: Date;
 
-  @ApiProperty({ description: 'Дата и время последнего обновления запроса' })
+  @ApiProperty({ 
+    description: 'Дата и время последнего обновления запроса', 
+    example: '2023-10-27T10:00:00.000Z',
+    readOnly: true
+  })
   @UpdateDateColumn({ name: 'updated_at' })
   updatedAt: Date;
 }

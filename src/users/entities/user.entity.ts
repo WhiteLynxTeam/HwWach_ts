@@ -1,77 +1,74 @@
 import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, UpdateDateColumn } from 'typeorm';
-import { IsEnum, IsNotEmpty, IsString, IsPhoneNumber, IsOptional, Length, Matches } from 'class-validator';
+import { ApiProperty, ApiPropertyOptional, ApiHideProperty } from '@nestjs/swagger';
 
 export enum UserRole {
   ADMIN = 'ADMIN',
   USER = 'USER',
 }
 
-@Entity()
+@Entity('users')
 export class User {
+  @ApiProperty({ example: '550e8400-e29b-41d4-a716-446655440000' })
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column({ unique: true })
-  @IsString()
-  @IsNotEmpty()
-  @Length(3, 50)
+  @ApiProperty({ example: 'ivanov_77' })
+  @Column({ length: 50, unique: true })
   login: string;
 
-  @Column()
-  @IsString()
-  @IsNotEmpty()
-  @Length(6, 100)
+  @ApiHideProperty()
+  @Column({ 
+    length: 255, 
+    select: false // Защита: пароль не вывалится в JSON просто так
+  })
   password: string;
 
+  @ApiPropertyOptional({ example: '+375291234567' })
   @Column({ type: 'varchar', length: 16, nullable: true })
-  @IsString()
-  @IsOptional()
-  @Matches(/^\+\d{1,15}$/, {
-    message: 'Phone must start with + and contain only digits'
-  })
   phone?: string;
 
+  @ApiPropertyOptional({ example: 'Иванов' })
   @Column({ name: 'last_name', type: 'varchar', length: 50, nullable: true })
-  @IsString()
-  @IsOptional()
-  @Length(2, 50)
   lastName?: string;
 
+  @ApiPropertyOptional({ example: 'Иван' })
   @Column({ name: 'first_name', type: 'varchar', length: 50, nullable: true })
-  @IsString()
-  @IsOptional()
-  @Length(2, 50)
   firstName?: string;
 
+  @ApiPropertyOptional({ example: 'Иванович' })
   @Column({ name: 'middle_name', type: 'varchar', length: 50, nullable: true })
-  @IsString()
-  @IsOptional()
-  @Length(2, 50)
   middleName?: string;
 
+  @ApiPropertyOptional({ example: 'Инженер' })
   @Column({ type: 'varchar', length: 100, nullable: true })
-  @IsString()
-  @IsOptional()
-  @Length(3, 100)
   position?: string;
 
+  @ApiProperty({ enum: UserRole, default: UserRole.USER })
   @Column({
     type: 'enum',
     enum: UserRole,
     enumName: 'user_role_enum',
     default: UserRole.USER
   })
-  @IsEnum(UserRole)
-  @IsNotEmpty()
   role: UserRole;
 
+  @ApiProperty({ default: true })
   @Column({ name: 'is_active', default: true })
-  @IsOptional()
   isActive: boolean;
 
+  @ApiProperty({ 
+    description: 'Дата и время создания записи', 
+    example: '2023-10-27T10:00:00.000Z',
+    readOnly: true
+  })
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 
+  @ApiProperty({ 
+    description: 'Дата и время последнего обновления записи', 
+    example: '2023-10-27T12:00:00.000Z',
+    readOnly: true 
+  })
   @UpdateDateColumn({ name: 'updated_at' })
   updatedAt: Date;
 }
