@@ -26,6 +26,7 @@ export class UsersService implements OnModuleInit {
 
   /**
    * Метод инициализации модуля - создает администратора по умолчанию при старте приложения
+   * и обновляет пароль, если он изменился в .env
    */
   async onModuleInit() {
     console.log('⚙️ UsersService onModuleInit called');
@@ -33,14 +34,23 @@ export class UsersService implements OnModuleInit {
     try {
       console.log('🔍 Checking for default admin...');
 
-      const adminExists = await this.usersRepository.findOne({
-        where: { role: UserRole.ADMIN },
+      const adminLogin = process.env.DEFAULT_ADMIN_LOGIN;
+      const adminPassword = process.env.DEFAULT_ADMIN_PASSWORD;
+
+      if (!adminLogin || !adminPassword) {
+        console.error('❌ DEFAULT_ADMIN_LOGIN and DEFAULT_ADMIN_PASSWORD are required in .env');
+        console.error('This is a security requirement to prevent default credentials in production.');
+        return;
+      }
+
+      // Ищем админа по логину (не только по роли)
+      const admin = await this.usersRepository.findOne({
+        where: { login: adminLogin },
+        select: ['id', 'password', 'role'], // password нужен для сравнения
       });
 
-      if (!adminExists) {
-        const adminLogin = process.env.DEFAULT_ADMIN_LOGIN || 'admin';
-        const adminPassword = process.env.DEFAULT_ADMIN_PASSWORD || '123!';
-
+      if (!admin) {
+        // Админ не найден — создаем нового
         const hashedPassword = await bcrypt.hash(adminPassword, 10);
 
         const defaultAdmin = this.usersRepository.create({
@@ -52,7 +62,21 @@ export class UsersService implements OnModuleInit {
         await this.usersRepository.save(defaultAdmin);
         console.log(`✅ Default admin created: ${adminLogin}`);
       } else {
-        console.log('ℹ️ Admin already exists');
+        // Админ существует — проверяем, нужно ли обновить пароль
+        const isPasswordValid = await bcrypt.compare(adminPassword, admin.password);
+        
+        if (!isPasswordValid) {
+          // Пароль изменился в .env — обновляем хэш в БД
+          const newHashedPassword = await bcrypt.hash(adminPassword, 10);
+          
+          await this.usersRepository.update(admin.id, {
+            password: newHashedPassword,
+          });
+          
+          console.log(`🔄 Admin password updated for: ${adminLogin}`);
+        } else {
+          console.log('ℹ️ Admin already exists with correct password');
+        }
       }
     } catch (error) {
       // Логируем ошибку, но не прерываем запуск приложения
