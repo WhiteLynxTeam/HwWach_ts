@@ -32,7 +32,7 @@ export class UsersController {
   @Roles(UserRole.ADMIN)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Get all users (Admin only)' })
-  @ApiResponse({ status: 200, description: 'Return all users.' })
+  @ApiResponse({ status: 200, description: 'Return all users.', type: [User] })
   @ApiResponse({ status: 403, description: 'Forbidden.' })
   async findAll(): Promise<Omit<User, 'password'>[]> {
     return await this.usersService.findAll();
@@ -40,7 +40,7 @@ export class UsersController {
 
   @Get(':id')
   @ApiOperation({ summary: 'Get a user by ID' })
-  @ApiResponse({ status: 200, description: 'Return the user.' })
+  @ApiResponse({ status: 200, description: 'Return the user.', type: User })
   @ApiResponse({ status: 403, description: 'Forbidden.' })
   @ApiResponse({ status: 404, description: 'User not found.' })
   async findOne(@Param('id') id: string): Promise<Omit<User, 'password'>> {
