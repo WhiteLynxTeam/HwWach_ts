@@ -12,6 +12,8 @@ import { LocalAuthGuard } from './local-auth.guard';
 import { ApiTags, ApiResponse, ApiOperation, ApiBody } from '@nestjs/swagger';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
+import { LoginResponseDto, RefreshResponseDto, ErrorResponseDto, UserResponseDto } from './dto/auth-response.dto';
+import { RefreshTokenDto } from './dto/refresh-token.dto';
 import { UsersService } from '../users/users.service';
 import { PendingRegistration } from '../users/entities/pending-registration.entity';
 
@@ -27,8 +29,8 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   @UseGuards(LocalAuthGuard)
   @ApiOperation({ summary: 'Login to the system' })
-  @ApiResponse({ status: 200, description: 'Successfully logged in.' })
-  @ApiResponse({ status: 401, description: 'Unauthorized.' })
+  @ApiResponse({ status: 200, description: 'Successfully logged in.', type: LoginResponseDto })
+  @ApiResponse({ status: 401, description: 'Unauthorized.', type: ErrorResponseDto })
   @ApiBody({
     description: 'Login credentials',
     type: LoginDto,
@@ -40,7 +42,7 @@ export class AuthController {
   @Post('register')
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({ summary: 'Register a new user' })
-  @ApiResponse({ status: 201, description: 'Successfully registered a new user request.' })
+  @ApiResponse({ status: 201, description: 'Successfully registered a new user request.', type: PendingRegistration })
   @ApiResponse({ status: 400, description: 'Bad Request.' })
   @ApiBody({
     description: 'Registration data',
@@ -52,9 +54,22 @@ export class AuthController {
 
   @Post('refresh')
   @ApiOperation({ summary: 'Refresh JWT token' })
-  @ApiResponse({ status: 200, description: 'Successfully refreshed token.' })
-  @ApiResponse({ status: 401, description: 'Unauthorized.' })
-  async refresh(@Body('refresh_token') refreshToken: string) {
+  @ApiResponse({
+    status: 200,
+    description: 'Successfully refreshed token.',
+    type: RefreshResponseDto,
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Invalid or missing refresh token.',
+    type: ErrorResponseDto,
+  })
+  @ApiBody({
+    description: 'Refresh token',
+    type: RefreshTokenDto,
+  })
+  async refresh(@Body() refreshTokenDto: RefreshTokenDto) {
+    const { refresh_token: refreshToken } = refreshTokenDto;
     // In a real application, you would verify the refresh token
     // For now, we'll simulate a refresh based on the payload
     try {
