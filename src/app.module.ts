@@ -28,7 +28,7 @@ logger.log(
       migrations: [__dirname + '/migrations/**/*{.ts,.js}'],
       synchronize: false,
       migrationsRun: true,
-      extra: config.db.ssl ? { sslmode: 'require' } : {},
+      ssl: config.db.ssl ? { rejectUnauthorized: false } : false,
     }),
     AuthModule,
     UsersModule,
