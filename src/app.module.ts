@@ -1,4 +1,4 @@
-import { Module, ValidationPipe } from '@nestjs/common';
+import { Module, ValidationPipe, Logger } from '@nestjs/common';
 import { APP_PIPE } from '@nestjs/core';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AuthModule } from './auth/auth.module';
@@ -7,6 +7,10 @@ import { ConfigModule } from '@nestjs/config';
 import { getConfig } from './config/configuration';
 
 const config = getConfig();
+const logger = new Logger('Database');
+logger.log(
+  `Database connection settings: host=${config.db.host}, port=${config.db.port}, username=${config.db.username}, database=${config.db.database}, ssl=${config.db.ssl}`,
+);
 
 @Module({
   imports: [
