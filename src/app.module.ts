@@ -24,6 +24,7 @@ const config = getConfig();
       migrations: [__dirname + '/migrations/**/*{.ts,.js}'],
       synchronize: false,
       migrationsRun: true,
+      extra: config.db.ssl ? { sslmode: 'require' } : {},
     }),
     AuthModule,
     UsersModule,

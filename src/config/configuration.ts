@@ -10,6 +10,7 @@ export interface AppConfig {
     username: string;
     password: string;
     database: string;
+    ssl: boolean;
   };
   jwt: {
     secret: string;
@@ -33,6 +34,7 @@ export function getConfig(): AppConfig {
       username: required('DB_USERNAME'),
       password: required('DB_PASSWORD'),
       database: process.env.DB_NAME || 'hwwach_db',
+      ssl: process.env.DB_SSL === 'true',
     },
     jwt: {
       secret: required('JWT_SECRET'),
