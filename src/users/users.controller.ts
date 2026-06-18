@@ -38,15 +38,6 @@ export class UsersController {
     return await this.usersService.findAll();
   }
 
-  @Get(':id')
-  @ApiOperation({ summary: 'Get a user by ID' })
-  @ApiResponse({ status: 200, description: 'Return the user.', type: User })
-  @ApiResponse({ status: 403, description: 'Forbidden.' })
-  @ApiResponse({ status: 404, description: 'User not found.' })
-  async findOne(@Param('id') id: string): Promise<Omit<User, 'password'>> {
-    return await this.usersService.findOne(id);
-  }
-
   @Post()
   @Roles(UserRole.ADMIN)
   @ApiBearerAuth()
@@ -58,32 +49,6 @@ export class UsersController {
     // Omit password from response
     const { password, ...user } = await this.usersService.create(createUserDto);
     return user;
-  }
-
-  @Put(':id')
-  @Roles(UserRole.ADMIN)
-  @ApiBearerAuth()
-  @ApiOperation({ summary: 'Update a user (Admin only)' })
-  @ApiResponse({ status: 200, description: 'The user has been successfully updated.' })
-  @ApiResponse({ status: 400, description: 'Bad Request.' })
-  @ApiResponse({ status: 403, description: 'Forbidden.' })
-  @ApiResponse({ status: 404, description: 'User not found.' })
-  async update(@Param('id') id: string, @Body() updateUserDto: UpdateUserDto): Promise<Omit<User, 'password'>> {
-    // Omit password from response
-    const { password, ...user } = await this.usersService.update(id, updateUserDto);
-    return user;
-  }
-
-  @Delete(':id')
-  @Roles(UserRole.ADMIN)
-  @ApiBearerAuth()
-  @ApiOperation({ summary: 'Delete/deactivate a user (Admin only)' })
-  @ApiResponse({ status: 200, description: 'The user has been successfully deactivated.' })
-  @ApiResponse({ status: 403, description: 'Forbidden.' })
-  @ApiResponse({ status: 404, description: 'User not found.' })
-  async remove(@Param('id') id: string): Promise<{ message: string }> {
-    await this.usersService.remove(id);
-    return { message: 'User deactivated successfully' };
   }
 
   @Get('registrations')
@@ -143,5 +108,40 @@ export class UsersController {
     const registration = await this.usersService.rejectRegistration(id, reason);
     const { password, ...result } = registration;
     return result;
+  }
+
+  @Get(':id')
+  @ApiOperation({ summary: 'Get a user by ID' })
+  @ApiResponse({ status: 200, description: 'Return the user.', type: User })
+  @ApiResponse({ status: 403, description: 'Forbidden.' })
+  @ApiResponse({ status: 404, description: 'User not found.' })
+  async findOne(@Param('id') id: string): Promise<Omit<User, 'password'>> {
+    return await this.usersService.findOne(id);
+  }
+
+  @Put(':id')
+  @Roles(UserRole.ADMIN)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Update a user (Admin only)' })
+  @ApiResponse({ status: 200, description: 'The user has been successfully updated.' })
+  @ApiResponse({ status: 400, description: 'Bad Request.' })
+  @ApiResponse({ status: 403, description: 'Forbidden.' })
+  @ApiResponse({ status: 404, description: 'User not found.' })
+  async update(@Param('id') id: string, @Body() updateUserDto: UpdateUserDto): Promise<Omit<User, 'password'>> {
+    // Omit password from response
+    const { password, ...user } = await this.usersService.update(id, updateUserDto);
+    return user;
+  }
+
+  @Delete(':id')
+  @Roles(UserRole.ADMIN)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Delete/deactivate a user (Admin only)' })
+  @ApiResponse({ status: 200, description: 'The user has been successfully deactivated.' })
+  @ApiResponse({ status: 403, description: 'Forbidden.' })
+  @ApiResponse({ status: 404, description: 'User not found.' })
+  async remove(@Param('id') id: string): Promise<{ message: string }> {
+    await this.usersService.remove(id);
+    return { message: 'User deactivated successfully' };
   }
 }
