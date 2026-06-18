@@ -554,7 +554,7 @@ export class UsersService implements OnModuleInit {
    */
   async getAllChangeRequests(): Promise<PendingChanges[]> {
     return await this.changeRequestsRepository.find({
-      relations: ['approvedBy', 'requestedBy'],
+      relations: ['approvedByUser', 'requestedBy'],
       order: { createdAt: 'DESC' },
     });
   }
@@ -567,7 +567,7 @@ export class UsersService implements OnModuleInit {
   async getChangeRequestById(id: string): Promise<PendingChanges> {
     const request = await this.changeRequestsRepository.findOne({
       where: { id },
-      relations: ['approvedBy', 'requestedBy'],
+      relations: ['approvedByUser', 'requestedBy'],
     });
 
     if (!request) {
@@ -596,6 +596,15 @@ export class UsersService implements OnModuleInit {
 
     if (request.status !== RequestStatus.PENDING) {
       throw new ConflictException('Запрос на изменение уже обработан');
+    }
+
+    // Получаем пользователя, который одобряет изменения
+    const approvingUser = await this.usersRepository.findOne({
+      where: { id: approvedById }
+    });
+
+    if (!approvingUser) {
+      throw new NotFoundException('Approving user not found');
     }
 
     // Выполняем транзакцию
@@ -636,6 +645,7 @@ export class UsersService implements OnModuleInit {
 
       // Обновляем статус запроса
       freshRequest.status = RequestStatus.APPROVED;
+      freshRequest.approvedByUser = approvingUser;
       freshRequest.adminComment = comment;
       freshRequest.processedAt = new Date();
       freshRequest.updatedAt = new Date();
@@ -646,7 +656,7 @@ export class UsersService implements OnModuleInit {
       // Загружаем обновленный запрос с правильным пользователем (без пароля)
       const finalRequest = await transactionalEntityManager.findOne(PendingChanges, {
         where: { id: updatedRequest.id },
-        relations: ['approvedBy', 'requestedBy'],
+        relations: ['approvedByUser', 'requestedBy'],
       });
 
       if (!finalRequest) {
