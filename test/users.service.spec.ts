@@ -1,10 +1,11 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, DataSource } from 'typeorm';
 import { UsersService } from '../src/users/users.service';
 import { User } from '../src/users/entities/user.entity';
 import { PendingRegistration } from '../src/users/entities/pending-registration.entity';
 import { PendingChanges } from '../src/users/entities/pending-changes.entity';
+import { PendingResetPass } from '../src/users/entities/pending-reset-pass.entity';
 import { ConflictException, NotFoundException } from '@nestjs/common';
 import { CreateUserDto } from '../src/users/dto/create-user.dto';
 import { UpdateUserDto } from '../src/users/dto/update-user.dto';
@@ -19,6 +20,12 @@ jest.mock('bcrypt', () => ({
 import * as bcrypt from 'bcrypt';
 
 // Моки репозиториев
+const mockQueryBuilder = {
+  where: jest.fn().mockReturnThis(),
+  addSelect: jest.fn().mockReturnThis(),
+  getOne: jest.fn(),
+};
+
 const mockUserRepository = () => ({
   create: jest.fn(),
   save: jest.fn(),
@@ -26,6 +33,7 @@ const mockUserRepository = () => ({
   findOne: jest.fn(),
   update: jest.fn(),
   delete: jest.fn(),
+  createQueryBuilder: jest.fn().mockReturnValue(mockQueryBuilder),
 });
 
 const mockPendingRegistrationRepository = () => ({
@@ -42,6 +50,17 @@ const mockPendingChangesRepository = () => ({
   find: jest.fn(),
   findOne: jest.fn(),
   update: jest.fn(),
+});
+
+const mockPendingResetPassRepository = () => ({
+  create: jest.fn(),
+  save: jest.fn(),
+  findOne: jest.fn(),
+  update: jest.fn(),
+});
+
+const mockDataSource = () => ({
+  transaction: jest.fn(),
 });
 
 describe('UsersService', () => {
@@ -66,6 +85,14 @@ describe('UsersService', () => {
           provide: getRepositoryToken(PendingChanges),
           useFactory: mockPendingChangesRepository,
         },
+        {
+          provide: getRepositoryToken(PendingResetPass),
+          useFactory: mockPendingResetPassRepository,
+        },
+        {
+          provide: DataSource,
+          useFactory: mockDataSource,
+        },
       ],
     }).compile();
 
@@ -73,6 +100,7 @@ describe('UsersService', () => {
     userRepository = module.get<Repository<User>>(getRepositoryToken(User));
     pendingRegistrationRepository = module.get<Repository<PendingRegistration>>(getRepositoryToken(PendingRegistration));
     pendingChangesRepository = module.get<Repository<PendingChanges>>(getRepositoryToken(PendingChanges));
+    jest.clearAllMocks();
   });
 
   it('should be defined', () => {
@@ -337,7 +365,7 @@ describe('UsersService', () => {
         updatedAt: new Date(),
       };
 
-      jest.spyOn(service, 'findByLogin').mockResolvedValue(user as never);
+      jest.spyOn(mockQueryBuilder, 'getOne').mockResolvedValue(user as never);
       (bcrypt.compare as jest.MockedFunction<typeof bcrypt.compare>).mockResolvedValue(true);
 
       const result = await service.validateUser(login, password);
@@ -345,7 +373,7 @@ describe('UsersService', () => {
     });
 
     it('should return null if user not found', async () => {
-      jest.spyOn(service, 'findByLogin').mockResolvedValue(null);
+      jest.spyOn(mockQueryBuilder, 'getOne').mockResolvedValue(null);
 
       const result = await service.validateUser('nonexistent', 'password');
       expect(result).toBeNull();
@@ -371,7 +399,7 @@ describe('UsersService', () => {
         updatedAt: new Date(),
       };
 
-      jest.spyOn(service, 'findByLogin').mockResolvedValue(user as never);
+      jest.spyOn(mockQueryBuilder, 'getOne').mockResolvedValue(user as never);
       (bcrypt.compare as jest.MockedFunction<typeof bcrypt.compare>).mockResolvedValue(false);
 
       const result = await service.validateUser(login, wrongPassword);

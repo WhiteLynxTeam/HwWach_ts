@@ -2,7 +2,7 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 //import { Transform } from 'class-transformer';
 import { IsEnum, IsNotEmpty, IsOptional, IsPhoneNumber, IsString, Length, Matches } from 'class-validator';
 import { UserRole } from '../entities/user.entity';
-import { Trim } from 'src/decorators/trim.decorator';
+import { Trim } from '../../decorators/trim.decorator';
 
 export class CreateUserDto {
   @ApiProperty({ example: 'ivan_Иванов77', description: 'Логин (RU/EN, цифры, подчёркивание, минус)' })

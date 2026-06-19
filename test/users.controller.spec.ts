@@ -2,7 +2,6 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { UsersController } from '../src/users/users.controller';
 import { UsersService } from '../src/users/users.service';
 import { User } from '../src/users/entities/user.entity';
-import { PendingRegistration } from '../src/users/entities/pending-registration.entity';
 import { CreateUserDto } from '../src/users/dto/create-user.dto';
 import { UpdateUserDto } from '../src/users/dto/update-user.dto';
 import { UserRole } from '../src/users/entities/user.entity';
@@ -163,52 +162,6 @@ describe('UsersController', () => {
       const result = await controller.remove(userId);
       expect(result).toEqual(message);
       expect(service.remove).toHaveBeenCalledWith(userId);
-    });
-  });
-
-  describe('getPendingRegistrations', () => {
-    it('should return pending registrations', async () => {
-      const registrations: Array<Omit<PendingRegistration, 'passwordHash'>> = [
-        {
-          id: '1',
-          login: 'pendinguser',
-          firstName: 'Pending',
-          lastName: 'User',
-          phone: '+375291234567',
-          position: 'Tester',
-          status: 'PENDING',
-          createdAt: new Date(),
-          updatedAt: new Date(),
-        },
-      ];
-
-      jest.spyOn(service, 'getPendingRegistrations').mockResolvedValue(registrations as never);
-
-      const result = await controller.getPendingRegistrations();
-      expect(result).toEqual(registrations);
-      expect(service.getPendingRegistrations).toHaveBeenCalled();
-    });
-  });
-
-  describe('getRegistrationById', () => {
-    it('should return a pending registration by id', async () => {
-      const registration: Omit<PendingRegistration, 'passwordHash'> = {
-        id: '1',
-        login: 'pendinguser',
-        firstName: 'Pending',
-        lastName: 'User',
-        phone: '+375291234567',
-        position: 'Tester',
-        status: 'PENDING',
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      };
-
-      jest.spyOn(service, 'getRegistrationById').mockResolvedValue(registration as never);
-
-      const result = await controller.getRegistrationById('1');
-      expect(result).toEqual(registration);
-      expect(service.getRegistrationById).toHaveBeenCalledWith('1');
     });
   });
 });

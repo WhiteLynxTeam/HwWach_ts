@@ -6,6 +6,7 @@ import { PendingChanges } from './entities/pending-changes.entity';
 import { PendingResetPass } from './entities/pending-reset-pass.entity';
 import { UsersService } from './users.service';
 import { UsersController } from './users.controller';
+import { RegistrationsController } from './registrations.controller';
 import { UserChangeRequestsController } from './user-change-requests.controller';
 import { RegistrationStatusController } from './registration-status.controller';
 import { ResetPassController } from './reset-pass.controller';
@@ -13,7 +14,13 @@ import { ResetPassController } from './reset-pass.controller';
 @Module({
   imports: [TypeOrmModule.forFeature([User, PendingRegistration, PendingChanges, PendingResetPass])],
   providers: [UsersService],
-  controllers: [UsersController, UserChangeRequestsController, RegistrationStatusController, ResetPassController],
+  controllers: [
+    UsersController,
+    RegistrationsController,
+    UserChangeRequestsController,
+    RegistrationStatusController,
+    ResetPassController,
+  ],
   exports: [UsersService],
 })
 export class UsersModule {

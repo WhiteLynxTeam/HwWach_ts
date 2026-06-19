@@ -101,7 +101,7 @@ describe('API Integration Tests (e2e)', () => {
   it('should approve pending registration', async () => {
     // Получим нерассмотренные регистрации
     const pendingRegsResponse = await request(app.getHttpServer())
-      .get('/users/registrations')
+      .get('/registrations')
       .set('Authorization', `Bearer ${adminToken}`)
       .expect(200);
 
@@ -110,7 +110,7 @@ describe('API Integration Tests (e2e)', () => {
 
     if (testReg) {
       const approveResponse = await request(app.getHttpServer())
-        .post(`/users/registrations/${testReg.id}/approve`)
+        .post(`/registrations/${testReg.id}/approve`)
         .set('Authorization', `Bearer ${adminToken}`)
         .send({ comment: 'Approved for testing' })
         .expect(200);
