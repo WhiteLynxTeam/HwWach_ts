@@ -20,9 +20,11 @@ import { ApiBearerAuth, ApiTags, ApiResponse, ApiOperation, ApiExtraModels } fro
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { PendingRegistration } from './entities/pending-registration.entity';
+import { PendingResetPass } from './entities/pending-reset-pass.entity';
+import { ApproveResetPasswordDto } from './dto/approve-reset-password.dto';
 
 @ApiTags('Users')
-@ApiExtraModels(PendingRegistration)
+@ApiExtraModels(PendingRegistration, PendingResetPass)
 @Controller('users')
 @UseGuards(AuthGuard('jwt'), RolesGuard)
 export class UsersController {
@@ -143,5 +145,45 @@ export class UsersController {
   async remove(@Param('id') id: string): Promise<{ message: string }> {
     await this.usersService.remove(id);
     return { message: 'User deactivated successfully' };
+  }
+
+  @Get('reset-requests')
+  @Roles(UserRole.ADMIN)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Get all pending password reset requests (Admin only)' })
+  @ApiResponse({ status: 200, description: 'Return all pending reset requests.' })
+  @ApiResponse({ status: 403, description: 'Forbidden.' })
+  async getPendingResetRequests(): Promise<PendingResetPass[]> {
+    return await this.usersService.getPendingResetRequests();
+  }
+
+  @Post('reset-requests/:id/approve')
+  @Roles(UserRole.ADMIN)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Approve a pending password reset request (Admin only)' })
+  @ApiResponse({ status: 200, description: 'Successfully approved the reset request.' })
+  @ApiResponse({ status: 400, description: 'Bad Request.' })
+  @ApiResponse({ status: 403, description: 'Forbidden.' })
+  @ApiResponse({ status: 404, description: 'Reset request not found.' })
+  async approveResetRequest(
+    @Param('id') id: string,
+    @Body() approveResetPasswordDto: ApproveResetPasswordDto,
+    @Request() req?: any
+  ): Promise<{ request: PendingResetPass; tempPassword?: string }> {
+    return await this.usersService.approveResetRequest(id, req?.user?.id, approveResetPasswordDto.password);
+  }
+
+  @Post('reset-requests/:id/reject')
+  @Roles(UserRole.ADMIN)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Reject a pending password reset request (Admin only)' })
+  @ApiResponse({ status: 200, description: 'Successfully rejected the reset request.' })
+  @ApiResponse({ status: 400, description: 'Bad Request.' })
+  @ApiResponse({ status: 403, description: 'Forbidden.' })
+  @ApiResponse({ status: 404, description: 'Reset request not found.' })
+  async rejectResetRequest(
+    @Param('id') id: string
+  ): Promise<PendingResetPass> {
+    return await this.usersService.rejectResetRequest(id);
   }
 }

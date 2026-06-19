@@ -3,6 +3,7 @@ import { AppModule } from './app.module';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { PendingChanges } from './users/entities/pending-changes.entity';
 import { PendingRegistration } from './users/entities/pending-registration.entity';
+import { PendingResetPass } from './users/entities/pending-reset-pass.entity';
 import { User } from './users/entities/user.entity';
 
 async function bootstrap() {
@@ -16,10 +17,9 @@ async function bootstrap() {
     .build();
 
 const document = SwaggerModule.createDocument(app, config, {
-  extraModels: [PendingChanges, PendingRegistration, User], // Явно указываем все сущности
+  extraModels: [PendingChanges, PendingRegistration, PendingResetPass, User], // Явно указываем все сущности
 });
 SwaggerModule.setup('api', app, document);
-  SwaggerModule.setup('api', app, document);
 
   await app.listen(process.env.PORT ?? 3033);
 }

@@ -1,9 +1,10 @@
-import { Injectable, UnauthorizedException, NotFoundException, ConflictException, OnModuleInit } from '@nestjs/common';
+import { Injectable, UnauthorizedException, NotFoundException, ConflictException, BadRequestException, OnModuleInit } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource } from 'typeorm';
 import { User, UserRole } from './entities/user.entity';
 import { PendingRegistration } from './entities/pending-registration.entity';
 import { PendingChanges } from './entities/pending-changes.entity';
+import { PendingResetPass } from './entities/pending-reset-pass.entity';
 import { RequestStatus } from '../common/enums/request-status.enum';
 import * as bcrypt from 'bcrypt';
 import { CreateUserDto } from './dto/create-user.dto';
@@ -19,6 +20,8 @@ export class UsersService implements OnModuleInit {
     private pendingRegistrationsRepository: Repository<PendingRegistration>,
     @InjectRepository(PendingChanges)
     private changeRequestsRepository: Repository<PendingChanges>,
+    @InjectRepository(PendingResetPass)
+    private resetRequestsRepository: Repository<PendingResetPass>,
     private dataSource: DataSource,
   )  {
     console.log('🏗️ UsersService CONSTRUCTOR called');  // <--- Сработает ли?
@@ -78,10 +81,60 @@ export class UsersService implements OnModuleInit {
           console.log('ℹ️ Admin already exists with correct password');
         }
       }
+
+      console.log('🔍 Checking for default null user...');
+      const nullLogin = process.env.DEFAULT_NULL_LOGIN;
+      const nullPassword = process.env.DEFAULT_NULL_PASSWORD;
+
+      if (!nullLogin || !nullPassword) {
+        console.error('❌ DEFAULT_NULL_LOGIN and DEFAULT_NULL_PASSWORD are required in .env');
+      } else {
+        const nullUser = await this.usersRepository.findOne({
+          where: { login: nullLogin },
+          select: ['id', 'password', 'role', 'isActive'],
+        });
+
+        if (!nullUser) {
+          const hashedPassword = await bcrypt.hash(nullPassword, 10);
+          const defaultNull = this.usersRepository.create({
+            login: nullLogin,
+            password: hashedPassword,
+            role: UserRole.USER,
+            isActive: false,
+          });
+          await this.usersRepository.save(defaultNull);
+          console.log(`✅ Default null user created: ${nullLogin}`);
+        } else {
+          const isPasswordValid = await bcrypt.compare(nullPassword, nullUser.password);
+          const needsUpdate = !isPasswordValid || nullUser.isActive !== false;
+
+          if (needsUpdate) {
+            const updates: any = {};
+            if (!isPasswordValid) {
+              updates.password = await bcrypt.hash(nullPassword, 10);
+            }
+            if (nullUser.isActive !== false) {
+              updates.isActive = false;
+            }
+            await this.usersRepository.update(nullUser.id, updates);
+            console.log(`🔄 Default null user updated: ${nullLogin}`);
+          } else {
+            console.log('ℹ️ Default null user already exists with correct credentials and isActive status');
+          }
+        }
+      }
     } catch (error) {
       // Логируем ошибку, но не прерываем запуск приложения
-      console.error('⚠️ Warning: Could not initialize default admin:', error.message);
-      console.error('This might happen if tables do not exist yet. Admin will be created when tables are ready.');
+      console.error('⚠️ Warning: Could not initialize default users:', error.message);
+      console.error('This might happen if tables do not exist yet. Users will be created when tables are ready.');
+    }
+  }
+
+  checkForbiddenLogin(login: string) {
+    if (!login) return;
+    const forbidden = ['null', 'nul', 'nil'];
+    if (forbidden.includes(login.toLowerCase())) {
+      throw new BadRequestException(`Использование логина "${login}" запрещено.`);
     }
   }
 
@@ -91,6 +144,7 @@ export class UsersService implements OnModuleInit {
    * @returns созданный пользователь
    */
   async create(createUserDto: CreateUserDto): Promise<User> {
+    this.checkForbiddenLogin(createUserDto.login);
     // Check if login or phone already exists
     const existingUser = await this.usersRepository.findOne({
       where: [
@@ -170,6 +224,9 @@ export class UsersService implements OnModuleInit {
    * @returns обновленный пользователь
    */
   async update(id: string, updateUserDto: UpdateUserDto): Promise<User> {
+    if (updateUserDto.login) {
+      this.checkForbiddenLogin(updateUserDto.login);
+    }
     const user = await this.findOne(id);
 
     // Check if login or phone is being changed to an existing one
@@ -218,6 +275,7 @@ export class UsersService implements OnModuleInit {
    * @returns данные пользователя без пароля или null
    */
   async validateUser(login: string, password: string): Promise<Omit<User, 'password'> | null> {
+    this.checkForbiddenLogin(login);
     const user = await this.usersRepository
       .createQueryBuilder('user')
       .where('user.login = :login', { login })
@@ -244,6 +302,9 @@ export class UsersService implements OnModuleInit {
    * @returns созданный запрос на регистрацию
    */
   async registerUser(userData: Partial<CreateUserDto>): Promise<Omit<PendingRegistration, 'password'>> {
+    if (userData.login) {
+      this.checkForbiddenLogin(userData.login);
+    }
     // Проверяем, существует ли уже пользователь с таким логином или телефоном
     const existingUser = await this.usersRepository.findOne({
       where: [
@@ -497,6 +558,10 @@ export class UsersService implements OnModuleInit {
     console.log('Service received userId:', userId);
     const user = await this.findOne(userId);
 
+    if (user.login === 'admin' || user.login === process.env.DEFAULT_ADMIN_LOGIN) {
+      throw new BadRequestException('Запрещено создавать запрос на изменение данных для логина admin.');
+    }
+
     // Проверяем, есть ли уже нерассмотренный запрос от этого пользователя
     const existingRequest = await this.changeRequestsRepository.findOne({
       where: {
@@ -725,5 +790,109 @@ export class UsersService implements OnModuleInit {
     });
 
     return result;
+  }
+
+  async requestPasswordReset(login: string): Promise<PendingResetPass> {
+    const user = await this.usersRepository.findOne({ where: { login } });
+    if (!user) {
+      throw new NotFoundException('Пользователь с таким логином не найден');
+    }
+
+    const existingRequest = await this.resetRequestsRepository.findOne({
+      where: {
+        userId: user.id,
+        status: RequestStatus.PENDING,
+      },
+    });
+
+    if (existingRequest) {
+      throw new ConflictException('Заявка на сброс пароля для этого пользователя уже находится на рассмотрении');
+    }
+
+    const resetRequest = this.resetRequestsRepository.create({
+      user,
+      userId: user.id,
+      status: RequestStatus.PENDING,
+    });
+
+    return await this.resetRequestsRepository.save(resetRequest);
+  }
+
+  async getPendingResetRequests(): Promise<PendingResetPass[]> {
+    return await this.resetRequestsRepository.find({
+      where: { status: RequestStatus.PENDING },
+      relations: ['user'],
+      order: { createdAt: 'DESC' },
+    });
+  }
+
+  async approveResetRequest(requestId: string, adminId: string, newPassword?: string): Promise<{ request: PendingResetPass; tempPassword?: string }> {
+    const request = await this.resetRequestsRepository.findOne({
+      where: { id: requestId },
+      relations: ['user'],
+    });
+
+    if (!request) {
+      throw new NotFoundException('Заявка на сброс пароля не найдена');
+    }
+
+    if (request.status !== RequestStatus.PENDING) {
+      throw new ConflictException('Эта заявка уже обработана');
+    }
+
+    const admin = await this.findOne(adminId);
+
+    let passwordHash: string;
+    let isDefault = false;
+
+    if (newPassword && newPassword.trim() !== '') {
+      const saltRounds = process.env.BCRYPT_ROUNDS ? parseInt(process.env.BCRYPT_ROUNDS) : 10;
+      passwordHash = await bcrypt.hash(newPassword, saltRounds);
+    } else {
+      const nullLogin = process.env.DEFAULT_NULL_LOGIN || 'null';
+      const nullUser = await this.usersRepository.findOne({
+        where: { login: nullLogin },
+        select: ['id', 'password'],
+      });
+      if (!nullUser) {
+        throw new NotFoundException('Служебный аккаунт null не найден для получения пароля по умолчанию');
+      }
+      passwordHash = nullUser.password;
+      isDefault = true;
+    }
+
+    await this.dataSource.transaction(async (transactionalEntityManager) => {
+      await transactionalEntityManager.update(User, request.userId, {
+        password: passwordHash,
+      });
+
+      request.status = RequestStatus.APPROVED;
+      request.processedAt = new Date();
+      request.approvedByUser = admin;
+      await transactionalEntityManager.save(PendingResetPass, request);
+    });
+
+    return {
+      request,
+      tempPassword: isDefault ? undefined : newPassword,
+    };
+  }
+
+  async rejectResetRequest(requestId: string): Promise<PendingResetPass> {
+    const request = await this.resetRequestsRepository.findOne({
+      where: { id: requestId },
+    });
+
+    if (!request) {
+      throw new NotFoundException('Заявка на сброс пароля не найдена');
+    }
+
+    if (request.status !== RequestStatus.PENDING) {
+      throw new ConflictException('Эта заявка уже обработана');
+    }
+
+    request.status = RequestStatus.REJECTED;
+    request.processedAt = new Date();
+    return await this.resetRequestsRepository.save(request);
   }
 }

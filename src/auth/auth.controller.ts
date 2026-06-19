@@ -16,6 +16,7 @@ import { LoginResponseDto, RefreshResponseDto, ErrorResponseDto, UserResponseDto
 import { RefreshTokenDto } from './dto/refresh-token.dto';
 import { UsersService } from '../users/users.service';
 import { PendingRegistration } from '../users/entities/pending-registration.entity';
+import { ForgotPasswordDto } from './dto/forgot-password.dto';
 
 @ApiTags('Auth')
 @Controller('auth')
@@ -89,5 +90,19 @@ export class AuthController {
     } catch (error) {
       return { statusCode: HttpStatus.UNAUTHORIZED, message: 'Invalid token' };
     }
+  }
+
+  @Post('forgot-password')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Request password reset (forgot password)' })
+  @ApiResponse({ status: 200, description: 'Reset request successfully created.' })
+  @ApiResponse({ status: 404, description: 'User not found.' })
+  @ApiResponse({ status: 409, description: 'Active reset request already exists.' })
+  @ApiBody({
+    description: 'User login for password reset',
+    type: ForgotPasswordDto,
+  })
+  async forgotPassword(@Body() forgotPasswordDto: ForgotPasswordDto) {
+    return this.usersService.requestPasswordReset(forgotPasswordDto.login);
   }
 }
