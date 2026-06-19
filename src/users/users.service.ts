@@ -1,4 +1,4 @@
-import { Injectable, UnauthorizedException, NotFoundException, ConflictException, BadRequestException, OnModuleInit, ForbiddenException } from '@nestjs/common';
+import { Injectable, UnauthorizedException, NotFoundException, ConflictException, BadRequestException, OnModuleInit, ForbiddenException, HttpException, HttpStatus } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource } from 'typeorm';
 import { User, UserRole } from './entities/user.entity';
@@ -11,6 +11,7 @@ import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { RequestUserChangeDto } from './dto/request-user-change.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
+import { ChangeTempPasswordDto } from './dto/change-temp-password.dto';
 
 @Injectable()
 export class UsersService implements OnModuleInit {
@@ -294,7 +295,14 @@ export class UsersService implements OnModuleInit {
     }
 
     if (user.isPassReset) {
-      throw new ForbiddenException('Необходимо сменить временный пароль перед авторизацией');
+      throw new HttpException(
+        {
+          statusCode: HttpStatus.PRECONDITION_FAILED,
+          message: 'Необходимо сменить временный пароль перед авторизацией',
+          error_code: 'PASSWORD_CHANGE_REQUIRED',
+        },
+        HttpStatus.PRECONDITION_FAILED,
+      );
     }
 
     // Return user without password
@@ -924,6 +932,33 @@ export class UsersService implements OnModuleInit {
 
     const saltRounds = process.env.BCRYPT_ROUNDS ? parseInt(process.env.BCRYPT_ROUNDS) : 10;
     user.password = await bcrypt.hash(changePasswordDto.newPassword, saltRounds);
+    user.isPassReset = false;
+
+    await this.usersRepository.save(user);
+  }
+
+  async changeTempPassword(changeTempPasswordDto: ChangeTempPasswordDto): Promise<void> {
+    const user = await this.usersRepository
+      .createQueryBuilder('user')
+      .where('user.login = :login', { login: changeTempPasswordDto.login })
+      .addSelect('user.password')
+      .getOne();
+
+    if (!user) {
+      throw new NotFoundException('Пользователь не найден');
+    }
+
+    if (!user.isPassReset) {
+      throw new BadRequestException('Пользователь не требует смены временного пароля');
+    }
+
+    const isOldPasswordValid = await bcrypt.compare(changeTempPasswordDto.oldPassword, user.password);
+    if (!isOldPasswordValid) {
+      throw new BadRequestException('Неверный старый пароль');
+    }
+
+    const saltRounds = process.env.BCRYPT_ROUNDS ? parseInt(process.env.BCRYPT_ROUNDS) : 10;
+    user.password = await bcrypt.hash(changeTempPasswordDto.newPassword, saltRounds);
     user.isPassReset = false;
 
     await this.usersRepository.save(user);

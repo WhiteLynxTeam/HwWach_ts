@@ -44,3 +44,14 @@ export class ErrorResponseDto {
   @ApiProperty({ example: 'Invalid token' })
   message: string;
 }
+
+export class PasswordChangeRequiredResponseDto {
+  @ApiProperty({ example: 412 })
+  statusCode: number;
+
+  @ApiProperty({ example: 'Необходимо сменить временный пароль перед авторизацией' })
+  message: string;
+
+  @ApiProperty({ example: 'PASSWORD_CHANGE_REQUIRED' })
+  error_code: string;
+}

@@ -26,12 +26,12 @@ import { ChangePasswordDto } from './dto/change-password.dto';
 @ApiExtraModels(PendingRegistration)
 @Controller('users')
 @UseGuards(AuthGuard('jwt'), RolesGuard)
+@ApiBearerAuth()
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
   @Get()
   @Roles(UserRole.ADMIN)
-  @ApiBearerAuth()
   @ApiOperation({ summary: 'Get all users (Admin only)' })
   @ApiResponse({ status: 200, description: 'Return all users.', type: [User] })
   @ApiResponse({ status: 403, description: 'Forbidden.' })
@@ -41,7 +41,6 @@ export class UsersController {
 
   @Post()
   @Roles(UserRole.ADMIN)
-  @ApiBearerAuth()
   @ApiOperation({ summary: 'Create a new user (Admin only)' })
   @ApiResponse({ status: 201, description: 'The user has been successfully created.' })
   @ApiResponse({ status: 400, description: 'Bad Request.' })
@@ -54,7 +53,6 @@ export class UsersController {
 
   @Get('registrations')
   @Roles(UserRole.ADMIN)
-  @ApiBearerAuth()
   @ApiOperation({ summary: 'Get all pending registrations (Admin only)' })
   @ApiResponse({ status: 200, description: 'Return all pending registrations.' })
   @ApiResponse({ status: 403, description: 'Forbidden.' })
@@ -65,7 +63,6 @@ export class UsersController {
 
   @Get('registrations/:id')
   @Roles(UserRole.ADMIN)
-  @ApiBearerAuth()
   @ApiOperation({ summary: 'Get a pending registration by ID (Admin only)' })
   @ApiResponse({ status: 200, description: 'Return the pending registration.' })
   @ApiResponse({ status: 403, description: 'Forbidden.' })
@@ -78,7 +75,6 @@ export class UsersController {
 
   @Post('registrations/:id/approve')
   @Roles(UserRole.ADMIN)
-  @ApiBearerAuth()
   @ApiOperation({ summary: 'Approve a pending registration (Admin only)' })
   @ApiResponse({ status: 200, description: 'Successfully approved the registration.' })
   @ApiResponse({ status: 400, description: 'Bad Request.' })
@@ -96,7 +92,6 @@ export class UsersController {
 
   @Post('registrations/:id/reject')
   @Roles(UserRole.ADMIN)
-  @ApiBearerAuth()
   @ApiOperation({ summary: 'Reject a pending registration (Admin only)' })
   @ApiResponse({ status: 200, description: 'Successfully rejected the registration.' })
   @ApiResponse({ status: 400, description: 'Bad Request.' })
@@ -122,7 +117,6 @@ export class UsersController {
 
   @Put(':id')
   @Roles(UserRole.ADMIN)
-  @ApiBearerAuth()
   @ApiOperation({ summary: 'Update a user (Admin only)' })
   @ApiResponse({ status: 200, description: 'The user has been successfully updated.' })
   @ApiResponse({ status: 400, description: 'Bad Request.' })
@@ -136,7 +130,6 @@ export class UsersController {
 
   @Delete(':id')
   @Roles(UserRole.ADMIN)
-  @ApiBearerAuth()
   @ApiOperation({ summary: 'Delete/deactivate a user (Admin only)' })
   @ApiResponse({ status: 200, description: 'The user has been successfully deactivated.' })
   @ApiResponse({ status: 403, description: 'Forbidden.' })
@@ -147,7 +140,6 @@ export class UsersController {
   }
 
   @Post('change-password')
-  @ApiBearerAuth()
   @ApiOperation({ summary: 'Change own password' })
   @ApiResponse({ status: 200, description: 'Password successfully changed.' })
   @ApiResponse({ status: 400, description: 'Bad Request (invalid old password or validation error).' })

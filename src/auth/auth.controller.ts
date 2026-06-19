@@ -12,11 +12,12 @@ import { LocalAuthGuard } from './local-auth.guard';
 import { ApiTags, ApiResponse, ApiOperation, ApiBody } from '@nestjs/swagger';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
-import { LoginResponseDto, RefreshResponseDto, ErrorResponseDto, UserResponseDto } from './dto/auth-response.dto';
+import { LoginResponseDto, RefreshResponseDto, ErrorResponseDto, UserResponseDto, PasswordChangeRequiredResponseDto } from './dto/auth-response.dto';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
 import { UsersService } from '../users/users.service';
 import { PendingRegistration } from '../users/entities/pending-registration.entity';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
+import { ChangeTempPasswordDto } from '../users/dto/change-temp-password.dto';
 
 @ApiTags('Auth')
 @Controller('auth')
@@ -32,6 +33,7 @@ export class AuthController {
   @ApiOperation({ summary: 'Login to the system' })
   @ApiResponse({ status: 200, description: 'Successfully logged in.', type: LoginResponseDto })
   @ApiResponse({ status: 401, description: 'Unauthorized.', type: ErrorResponseDto })
+  @ApiResponse({ status: 412, description: 'Необходимо сменить временный пароль перед авторизацией.', type: PasswordChangeRequiredResponseDto })
   @ApiBody({
     description: 'Login credentials',
     type: LoginDto,
@@ -104,5 +106,19 @@ export class AuthController {
   })
   async forgotPassword(@Body() forgotPasswordDto: ForgotPasswordDto) {
     return this.usersService.requestPasswordReset(forgotPasswordDto.login);
+  }
+
+  @Post('change-temp-password')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Change temporary password (Public endpoint)' })
+  @ApiResponse({ status: 200, description: 'Password successfully changed.' })
+  @ApiResponse({ status: 400, description: 'Bad Request (invalid credentials, or password reset not required).' })
+  @ApiBody({
+    description: 'Temporary password reset details',
+    type: ChangeTempPasswordDto,
+  })
+  async changeTempPassword(@Body() changeTempPasswordDto: ChangeTempPasswordDto): Promise<{ message: string }> {
+    await this.usersService.changeTempPassword(changeTempPasswordDto);
+    return { message: 'Password changed successfully' };
   }
 }
