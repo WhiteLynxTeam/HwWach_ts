@@ -1,4 +1,4 @@
-import { Injectable, UnauthorizedException, NotFoundException, ConflictException, BadRequestException, OnModuleInit } from '@nestjs/common';
+import { Injectable, UnauthorizedException, NotFoundException, ConflictException, BadRequestException, OnModuleInit, ForbiddenException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource } from 'typeorm';
 import { User, UserRole } from './entities/user.entity';
@@ -10,6 +10,7 @@ import * as bcrypt from 'bcrypt';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { RequestUserChangeDto } from './dto/request-user-change.dto';
+import { ChangePasswordDto } from './dto/change-password.dto';
 
 @Injectable()
 export class UsersService implements OnModuleInit {
@@ -252,6 +253,7 @@ export class UsersService implements OnModuleInit {
     if (updateUserDto.password) {
       const saltRounds = process.env.BCRYPT_ROUNDS ? parseInt(process.env.BCRYPT_ROUNDS) : 10;
       updateUserDto.password = await bcrypt.hash(updateUserDto.password, saltRounds);
+      user.isPassReset = true;
     }
 
     Object.assign(user, updateUserDto);
@@ -289,6 +291,10 @@ export class UsersService implements OnModuleInit {
     const isPasswordValid = await bcrypt.compare(password, user.password);
     if (!isPasswordValid) {
       return null;
+    }
+
+    if (user.isPassReset) {
+      throw new ForbiddenException('Необходимо сменить временный пароль перед авторизацией');
     }
 
     // Return user without password
@@ -809,6 +815,9 @@ export class UsersService implements OnModuleInit {
       throw new ConflictException('Заявка на сброс пароля для этого пользователя уже находится на рассмотрении');
     }
 
+    user.isPassReset = true;
+    await this.usersRepository.save(user);
+
     const resetRequest = this.resetRequestsRepository.create({
       user,
       userId: user.id,
@@ -864,6 +873,7 @@ export class UsersService implements OnModuleInit {
     await this.dataSource.transaction(async (transactionalEntityManager) => {
       await transactionalEntityManager.update(User, request.userId, {
         password: passwordHash,
+        isPassReset: true,
       });
 
       request.status = RequestStatus.APPROVED;
@@ -894,5 +904,28 @@ export class UsersService implements OnModuleInit {
     request.status = RequestStatus.REJECTED;
     request.processedAt = new Date();
     return await this.resetRequestsRepository.save(request);
+  }
+
+  async changePassword(userId: string, changePasswordDto: ChangePasswordDto): Promise<void> {
+    const user = await this.usersRepository
+      .createQueryBuilder('user')
+      .where('user.id = :userId', { userId })
+      .addSelect('user.password')
+      .getOne();
+
+    if (!user) {
+      throw new NotFoundException('Пользователь не найден');
+    }
+
+    const isOldPasswordValid = await bcrypt.compare(changePasswordDto.oldPassword, user.password);
+    if (!isOldPasswordValid) {
+      throw new BadRequestException('Неверный старый пароль');
+    }
+
+    const saltRounds = process.env.BCRYPT_ROUNDS ? parseInt(process.env.BCRYPT_ROUNDS) : 10;
+    user.password = await bcrypt.hash(changePasswordDto.newPassword, saltRounds);
+    user.isPassReset = false;
+
+    await this.usersRepository.save(user);
   }
 }

@@ -8,11 +8,12 @@ import { UsersService } from './users.service';
 import { UsersController } from './users.controller';
 import { UserChangeRequestsController } from './user-change-requests.controller';
 import { RegistrationStatusController } from './registration-status.controller';
+import { ResetPassController } from './reset-pass.controller';
 
 @Module({
   imports: [TypeOrmModule.forFeature([User, PendingRegistration, PendingChanges, PendingResetPass])],
   providers: [UsersService],
-  controllers: [UsersController, UserChangeRequestsController, RegistrationStatusController],
+  controllers: [UsersController, UserChangeRequestsController, RegistrationStatusController, ResetPassController],
   exports: [UsersService],
 })
 export class UsersModule {

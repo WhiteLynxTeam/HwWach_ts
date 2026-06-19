@@ -56,6 +56,10 @@ export class User {
   @Column({ name: 'is_active', default: true })
   isActive: boolean;
 
+  @ApiProperty({ default: false, description: 'Флаг сброшенного/временного пароля' })
+  @Column({ name: 'is_pass_reset', default: false })
+  isPassReset: boolean;
+
   @ApiProperty({ 
     description: 'Дата и время создания записи', 
     example: '2023-10-27T10:00:00.000Z',
