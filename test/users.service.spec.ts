@@ -195,7 +195,7 @@ describe('UsersService', () => {
       const result = await service.findAll();
       expect(result).toEqual(users);
       expect(userRepository.find).toHaveBeenCalledWith({
-        select: ['id', 'login', 'phone', 'lastName', 'firstName', 'middleName', 'position', 'role', 'isActive', 'createdAt', 'updatedAt'],
+        select: ['id', 'login', 'phone', 'lastName', 'firstName', 'middleName', 'position', 'role', 'isActive', 'isPassReset', 'createdAt', 'updatedAt'],
       });
     });
   });
@@ -222,7 +222,7 @@ describe('UsersService', () => {
       expect(result).toEqual(user);
       expect(userRepository.findOne).toHaveBeenCalledWith({
         where: { id: '1' },
-        select: ['id', 'login', 'phone', 'lastName', 'firstName', 'middleName', 'position', 'role', 'isActive', 'createdAt', 'updatedAt'],
+        select: ['id', 'login', 'phone', 'lastName', 'firstName', 'middleName', 'position', 'role', 'isActive', 'isPassReset', 'createdAt', 'updatedAt'],
       });
     });
 
@@ -293,7 +293,7 @@ describe('UsersService', () => {
       expect(result).toEqual(updatedUser);
       expect(userRepository.findOne).toHaveBeenCalledWith({ 
         where: { id: userId },
-        select: ['id', 'login', 'phone', 'lastName', 'firstName', 'middleName', 'position', 'role', 'isActive', 'createdAt', 'updatedAt'],
+        select: ['id', 'login', 'phone', 'lastName', 'firstName', 'middleName', 'position', 'role', 'isActive', 'isPassReset', 'createdAt', 'updatedAt'],
       });
     });
   });
@@ -326,7 +326,7 @@ describe('UsersService', () => {
       await service.remove(userId);
       expect(userRepository.findOne).toHaveBeenCalledWith({ 
         where: { id: userId },
-        select: ['id', 'login', 'phone', 'lastName', 'firstName', 'middleName', 'position', 'role', 'isActive', 'createdAt', 'updatedAt'],
+        select: ['id', 'login', 'phone', 'lastName', 'firstName', 'middleName', 'position', 'role', 'isActive', 'isPassReset', 'createdAt', 'updatedAt'],
       });
       expect(userRepository.save).toHaveBeenCalledWith(deactivatedUser);
     });

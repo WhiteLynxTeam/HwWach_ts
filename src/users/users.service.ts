@@ -184,7 +184,7 @@ export class UsersService implements OnModuleInit {
    */
   async findAll(): Promise<User[]> {
     return await this.usersRepository.find({
-      select: ['id', 'login', 'phone', 'lastName', 'firstName', 'middleName', 'position', 'role', 'isActive', 'createdAt', 'updatedAt'],
+      select: ['id', 'login', 'phone', 'lastName', 'firstName', 'middleName', 'position', 'role', 'isActive', 'isPassReset', 'createdAt', 'updatedAt'],
     });
   }
 
@@ -197,7 +197,7 @@ export class UsersService implements OnModuleInit {
   async findOne(id: string): Promise<User> {
     const user = await this.usersRepository.findOne({
       where: { id },
-      select: ['id', 'login', 'phone', 'lastName', 'firstName', 'middleName', 'position', 'role', 'isActive', 'createdAt', 'updatedAt'],
+      select: ['id', 'login', 'phone', 'lastName', 'firstName', 'middleName', 'position', 'role', 'isActive', 'isPassReset', 'createdAt', 'updatedAt'],
     });
 
     if (!user) {
@@ -250,11 +250,26 @@ export class UsersService implements OnModuleInit {
       }
     }
 
-    // Hash password if it's being updated
-    if (updateUserDto.password) {
-      const saltRounds = process.env.BCRYPT_ROUNDS ? parseInt(process.env.BCRYPT_ROUNDS) : 10;
-      updateUserDto.password = await bcrypt.hash(updateUserDto.password, saltRounds);
-      user.isPassReset = true;
+    // Hash password if it's being updated, or set default if empty
+    if (updateUserDto.password !== undefined) {
+      if (updateUserDto.password.trim() === '') {
+        const nullLogin = process.env.DEFAULT_NULL_LOGIN || 'null';
+        const nullUser = await this.usersRepository.findOne({
+          where: { login: nullLogin },
+          select: ['id', 'password'],
+        });
+        if (!nullUser) {
+          throw new NotFoundException('Служебный аккаунт null не найден для получения пароля по умолчанию');
+        }
+        user.password = nullUser.password;
+        user.isPassReset = true;
+      } else {
+        const saltRounds = process.env.BCRYPT_ROUNDS ? parseInt(process.env.BCRYPT_ROUNDS) : 10;
+        user.password = await bcrypt.hash(updateUserDto.password, saltRounds);
+        user.isPassReset = true;
+      }
+      // Remove password from updateUserDto to avoid double assignment/overwrite by Object.assign
+      delete updateUserDto.password;
     }
 
     Object.assign(user, updateUserDto);
