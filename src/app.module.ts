@@ -5,6 +5,7 @@ import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
 import { ConfigModule } from '@nestjs/config';
 import { getConfig } from './config/configuration';
+import { HealthController } from './health.controller';
 
 const config = getConfig();
 const logger = new Logger('Database');
@@ -33,7 +34,7 @@ logger.log(
     AuthModule,
     UsersModule,
   ],
-  controllers: [],
+  controllers: [HealthController],
   providers: [
     {
       provide: APP_PIPE,
