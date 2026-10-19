@@ -468,10 +468,11 @@ export class UsersService implements OnModuleInit {
   /**
    * Отклоняет запрос на регистрацию пользователя
    * @param registrationId - идентификатор запроса на регистрацию
+   * @param rejectedById - идентификатор администратора, отклонившего заявку
    * @param rejectedReason - причина отклонения
    * @returns обновленный запрос на регистрацию
    */
-  async rejectRegistration(registrationId: string, rejectedReason?: string): Promise<PendingRegistration> {
+  async rejectRegistration(registrationId: string, rejectedById: string, rejectedReason: string): Promise<PendingRegistration> {
     const registration = await this.pendingRegistrationsRepository.findOne({
       where: { id: registrationId }
     });
@@ -482,6 +483,15 @@ export class UsersService implements OnModuleInit {
 
     if (registration.status !== RequestStatus.PENDING) {
       throw new ConflictException('Registration request is not in pending status');
+    }
+
+    // Получаем администратора, который отклоняет заявку (approvedByUser — «кто обработал»)
+    const rejectingUser = await this.usersRepository.findOne({
+      where: { id: rejectedById }
+    });
+
+    if (!rejectingUser) {
+      throw new NotFoundException('Rejecting user not found');
     }
 
     // Выполняем транзакцию
@@ -503,6 +513,7 @@ export class UsersService implements OnModuleInit {
       // Обновляем статус заявки
       await transactionalEntityManager.update(PendingRegistration, registrationId, {
         status: RequestStatus.REJECTED,
+        approvedByUser: rejectingUser,
         adminComment: rejectedReason,
         processedAt: new Date()
       });

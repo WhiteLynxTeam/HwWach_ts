@@ -14,6 +14,7 @@ import { Roles } from '../auth/roles.decorator';
 import { UserRole } from './entities/user.entity';
 import { ApiBearerAuth, ApiTags, ApiResponse, ApiOperation, ApiExtraModels } from '@nestjs/swagger';
 import { PendingRegistration } from './entities/pending-registration.entity';
+import { RejectRegistrationDto } from './dto/reject-registration.dto';
 
 @ApiTags('Registrations')
 @ApiExtraModels(PendingRegistration)
@@ -71,9 +72,10 @@ export class RegistrationsController {
   @ApiResponse({ status: 404, description: 'Registration request not found.' })
   async rejectRegistration(
     @Param('id') id: string,
-    @Body('reason') reason?: string
+    @Body() dto: RejectRegistrationDto,
+    @Request() req?: any
   ): Promise<Omit<PendingRegistration, 'password'>> {
-    const registration = await this.usersService.rejectRegistration(id, reason);
+    const registration = await this.usersService.rejectRegistration(id, req?.user?.id, dto.reason);
     const { password, ...result } = registration;
     return result;
   }

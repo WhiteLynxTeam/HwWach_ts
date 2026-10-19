@@ -119,9 +119,10 @@ describe('RegistrationsController', () => {
 
       jest.spyOn(service, 'rejectRegistration').mockResolvedValue(registration as never);
 
-      const result = await controller.rejectRegistration('1', 'Reason for rejection');
+      const req = { user: { id: 'admin-id' } };
+      const result = await controller.rejectRegistration('1', { reason: 'Reason for rejection' }, req);
       expect(result).toEqual(registration);
-      expect(service.rejectRegistration).toHaveBeenCalledWith('1', 'Reason for rejection');
+      expect(service.rejectRegistration).toHaveBeenCalledWith('1', 'admin-id', 'Reason for rejection');
     });
   });
 });
