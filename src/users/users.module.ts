@@ -1,30 +1,27 @@
 import { Module } from '@nestjs/common';
-import { TypeOrmModule } from '@nestjs/typeorm';
-import { User } from './entities/user.entity';
-import { PendingRegistration } from './entities/pending-registration.entity';
-import { PendingChanges } from './entities/pending-changes.entity';
-import { PendingResetPass } from './entities/pending-reset-pass.entity';
-import { UsersService } from './users.service';
-import { UsersController } from './users.controller';
+import { AccountsService } from './accounts.service';
+import { PersonsService } from './persons.service';
+import { RegistrationsService } from './registrations.service';
+import { ChangeRequestsService } from './change-requests.service';
+import { AdminHandoverService } from './admin-handover.service';
+import { AccountsController } from './accounts.controller';
+import { PersonsController } from './persons.controller';
 import { RegistrationsController } from './registrations.controller';
-import { UserChangeRequestsController } from './user-change-requests.controller';
 import { RegistrationStatusController } from './registration-status.controller';
 import { ResetPassController } from './reset-pass.controller';
+import { UserChangeRequestsController } from './user-change-requests.controller';
 
+// Люди, учётные записи и заявки, которые утверждает админ организации
 @Module({
-  imports: [TypeOrmModule.forFeature([User, PendingRegistration, PendingChanges, PendingResetPass])],
-  providers: [UsersService],
+  providers: [AccountsService, PersonsService, RegistrationsService, ChangeRequestsService, AdminHandoverService],
   controllers: [
-    UsersController,
+    AccountsController,
+    PersonsController,
     RegistrationsController,
-    UserChangeRequestsController,
     RegistrationStatusController,
     ResetPassController,
+    UserChangeRequestsController,
   ],
-  exports: [UsersService],
+  exports: [AccountsService, PersonsService, RegistrationsService, ChangeRequestsService],
 })
-export class UsersModule {
-  constructor() {
-    console.log('✅ UsersModule initialized');
-  }
-}
+export class UsersModule {}

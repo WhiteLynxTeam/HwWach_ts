@@ -1,0 +1,22 @@
+# Будильник ежесуточной задачи (org-roles-plan.md, 8.7): спящий сервис на бесплатном Render
+# таймеры внутри процесса не выполняет — автоудаление и письма-предупреждения запускаем снаружи.
+# Секреты репозитория: TS_PUBLIC_URL (https://ts-back-hwwach.onrender.com) и INTERNAL_API_KEY.
+# GitHub отключает расписание в репозитории без коммитов 60 дней — при простое проверить, что workflow включён.
+name: daily-job
+
+on:
+  schedule:
+    - cron: '17 3 * * *' # 06:17 по Минску
+  workflow_dispatch:
+
+jobs:
+  daily:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Разбудить ts
+        run: curl -sS --retry 3 --retry-delay 20 --max-time 120 "${{ secrets.TS_PUBLIC_URL }}/health" || true
+      - name: Ежесуточная задача
+        run: |
+          curl -sS --fail --retry 3 --retry-delay 30 --max-time 300 \
+            -X POST -H "X-Internal-Key: ${{ secrets.INTERNAL_API_KEY }}" \
+            "${{ secrets.TS_PUBLIC_URL }}/internal/jobs/daily"

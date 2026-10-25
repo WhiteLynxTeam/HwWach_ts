@@ -3,6 +3,8 @@ import { APP_PIPE } from '@nestjs/core';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
+import { CoreModule } from './core/core.module';
+import { OrgsModule } from './orgs/orgs.module';
 import { ConfigModule } from '@nestjs/config';
 import { getConfig } from './config/configuration';
 import { HealthController } from './health.controller';
@@ -31,8 +33,10 @@ logger.log(
       migrationsRun: true,
       ssl: config.db.ssl ? { rejectUnauthorized: false } : false,
     }),
+    CoreModule,
     AuthModule,
     UsersModule,
+    OrgsModule,
   ],
   controllers: [HealthController],
   providers: [
