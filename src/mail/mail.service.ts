@@ -7,7 +7,8 @@ export interface MailMessage {
 }
 
 // Отправка писем за интерфейсом: способ меняется без правки логики (8.2).
-// MAIL_DRIVER=gmail — Gmail API с ящика команды, console — письмо в лог (локально и в тестах).
+// MAIL_DRIVER=appsscript — веб-приложение Apps Script в ящике команды (без Google Cloud, см. apps-script/mailer.gs),
+// gmail — Gmail API с ящика команды, console — письмо в лог (локально и в тестах).
 export abstract class MailSender {
   abstract send(msg: MailMessage): Promise<void>;
   // обмен refresh → access без отправки: ежесуточная задача держит токен «используемым» (8.2)
@@ -96,6 +97,47 @@ export class GmailMailSender extends MailSender {
   }
 }
 
+// Скрипт отправляет через MailApp от имени ящика, где опубликован. Запрос защищён общим секретом;
+// /exec отвечает 302 на googleusercontent.com — fetch идёт по редиректу и получает JSON
+export class AppsScriptMailSender extends MailSender {
+  private readonly logger = new Logger('AppsScriptMail');
+
+  private async call(payload: Record<string, unknown>): Promise<any> {
+    const resp = await fetch(process.env.APPS_SCRIPT_URL ?? '', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ secret: process.env.APPS_SCRIPT_SECRET ?? '', ...payload }),
+    });
+    const text = await resp.text();
+    let data: any;
+    try {
+      data = JSON.parse(text);
+    } catch {
+      // вместо JSON — страница Google: скрипт не опубликован для «Anyone» или неверный URL
+      throw new Error(`Apps Script: не JSON (${resp.status}): ${text.slice(0, 200)}`);
+    }
+    if (!data?.ok) throw new Error(`Apps Script: ${data?.error ?? 'unknown error'}`);
+    return data;
+  }
+
+  async send(msg: MailMessage): Promise<void> {
+    await this.call({ action: 'send', to: msg.to, subject: msg.subject, text: msg.text, name: process.env.MAIL_FROM_NAME ?? 'HwWach' });
+  }
+
+  // проверка доступности и остаток суточной квоты — в лог ежесуточной задачи
+  async keepAlive(): Promise<void> {
+    const data = await this.call({ action: 'ping' });
+    this.logger.log(`Apps Script: остаток квоты на сегодня ${data.quota}`);
+  }
+}
+
 export function createMailSender(): MailSender {
-  return process.env.MAIL_DRIVER === 'gmail' ? new GmailMailSender() : new ConsoleMailSender();
+  switch (process.env.MAIL_DRIVER) {
+    case 'appsscript':
+      return new AppsScriptMailSender();
+    case 'gmail':
+      return new GmailMailSender();
+    default:
+      return new ConsoleMailSender();
+  }
 }
