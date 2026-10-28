@@ -58,7 +58,7 @@ export class EmailCode {
   createdAt: Date;
 }
 
-@Entity('audit_log')
+@Entity('auth_audit_log')
 export class AuditLog {
   @PrimaryGeneratedColumn('uuid')
   id: string;

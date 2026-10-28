@@ -234,7 +234,7 @@ export class OrgRoles1771189563379 implements MigrationInterface {
     await q.query(`CREATE INDEX "IDX_email_codes_ip" ON "email_codes" ("ip", "created_at")`);
 
     await q.query(`
-      CREATE TABLE "audit_log" (
+      CREATE TABLE "auth_audit_log" (
         "id" uuid NOT NULL DEFAULT gen_random_uuid(),
         "organization_id" uuid NOT NULL,
         "actor_type" varchar(10) NOT NULL DEFAULT 'user' CHECK ("actor_type" IN ('user', 'system')),
@@ -246,11 +246,11 @@ export class OrgRoles1771189563379 implements MigrationInterface {
         "details" jsonb,
         "ip" varchar(64),
         "created_at" timestamptz NOT NULL DEFAULT now(),
-        CONSTRAINT "PK_audit_log" PRIMARY KEY ("id"),
-        CONSTRAINT "CHK_audit_log_actor" CHECK ("actor_type" = 'system' OR ("account_id" IS NOT NULL AND "actor_person_id" IS NOT NULL))
+        CONSTRAINT "PK_auth_audit_log" PRIMARY KEY ("id"),
+        CONSTRAINT "CHK_auth_audit_log_actor" CHECK ("actor_type" = 'system' OR ("account_id" IS NOT NULL AND "actor_person_id" IS NOT NULL))
       )`);
-    await q.query(`CREATE INDEX "IDX_audit_log_org_created" ON "audit_log" ("organization_id", "created_at" DESC)`);
-    await q.query(`CREATE INDEX "IDX_audit_log_object" ON "audit_log" ("object_id")`);
+    await q.query(`CREATE INDEX "IDX_auth_audit_log_org_created" ON "auth_audit_log" ("organization_id", "created_at" DESC)`);
+    await q.query(`CREATE INDEX "IDX_auth_audit_log_object" ON "auth_audit_log" ("object_id")`);
 
     await q.query(`
       CREATE TABLE "job_runs" (
@@ -289,7 +289,7 @@ export class OrgRoles1771189563379 implements MigrationInterface {
 
   public async down(q: QueryRunner): Promise<void> {
     for (const t of [
-      'rate_limit_hits', 'job_runs', 'audit_log', 'email_codes', 'pending_reset_pass', 'pending_changes',
+      'rate_limit_hits', 'job_runs', 'auth_audit_log', 'email_codes', 'pending_reset_pass', 'pending_changes',
       'pending_registrations', 'invites', 'account_person_history', 'accounts', 'system_role_permissions',
       'permissions', 'system_roles', 'persons', 'organizations',
     ]) {
