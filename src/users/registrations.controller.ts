@@ -1,82 +1,45 @@
-import {
-  Controller,
-  Get,
-  Post,
-  Body,
-  Param,
-  UseGuards,
-  Request,
-} from '@nestjs/common';
-import { UsersService } from './users.service';
+import { Controller, Get, Post, Body, Param, UseGuards, Req } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
-import { RolesGuard } from '../auth/roles.guard';
-import { Roles } from '../auth/roles.decorator';
-import { UserRole } from './entities/user.entity';
-import { ApiBearerAuth, ApiTags, ApiResponse, ApiOperation, ApiExtraModels } from '@nestjs/swagger';
-import { PendingRegistration } from './entities/pending-registration.entity';
+import { ApiBearerAuth, ApiTags, ApiOperation } from '@nestjs/swagger';
+import type { Request } from 'express';
+import { RegistrationsService } from './registrations.service';
 import { RejectRegistrationDto } from './dto/reject-registration.dto';
+import { ApproveRegistrationDto } from './dto/accounts.dto';
+import { CurrentUser } from '../common/auth-user';
+import type { AuthUser } from '../common/auth-user';
+import { PermsGuard, RequirePerms } from '../common/perms.guard';
+import { Perm } from '../common/permissions';
+import { clientIp } from '../common/client-ip';
 
+// Заявки на регистрацию в организации — утверждает только админ этой организации (9.1)
 @ApiTags('Registrations')
-@ApiExtraModels(PendingRegistration)
 @Controller('registrations')
-@UseGuards(AuthGuard('jwt'), RolesGuard)
+@UseGuards(AuthGuard('jwt'), PermsGuard)
+@RequirePerms(Perm.ACCOUNTS_MANAGE)
 @ApiBearerAuth()
 export class RegistrationsController {
-  constructor(private readonly usersService: UsersService) {}
+  constructor(private readonly regs: RegistrationsService) {}
 
   @Get()
-  @Roles(UserRole.ADMIN)
-  @ApiOperation({ summary: 'Get all pending registrations (Admin only)' })
-  @ApiResponse({ status: 200, description: 'Return all pending registrations.' })
-  @ApiResponse({ status: 403, description: 'Forbidden.' })
-  async getPendingRegistrations(): Promise<Array<Omit<PendingRegistration, 'password'>>> {
-    const registrations = await this.usersService.getPendingRegistrations();
-    return registrations.map(({ password, ...rest }) => rest);
+  @ApiOperation({ summary: 'Заявки на регистрацию, ожидающие решения' })
+  async list(@CurrentUser() user: AuthUser) {
+    return this.regs.listPending(user.org);
   }
 
   @Get(':id')
-  @Roles(UserRole.ADMIN)
-  @ApiOperation({ summary: 'Get a pending registration by ID (Admin only)' })
-  @ApiResponse({ status: 200, description: 'Return the pending registration.' })
-  @ApiResponse({ status: 403, description: 'Forbidden.' })
-  @ApiResponse({ status: 404, description: 'Registration request not found.' })
-  async getRegistrationById(@Param('id') id: string): Promise<Omit<PendingRegistration, 'password'>> {
-    const registration = await this.usersService.getRegistrationById(id);
-    const { password, ...result } = registration;
-    return result;
+  async get(@CurrentUser() user: AuthUser, @Param('id') id: string) {
+    return this.regs.get(user.org, id);
   }
 
   @Post(':id/approve')
-  @Roles(UserRole.ADMIN)
-  @ApiOperation({ summary: 'Approve a pending registration (Admin only)' })
-  @ApiResponse({ status: 200, description: 'Successfully approved the registration.' })
-  @ApiResponse({ status: 400, description: 'Bad Request.' })
-  @ApiResponse({ status: 403, description: 'Forbidden.' })
-  @ApiResponse({ status: 404, description: 'Registration request or user not found.' })
-  async approveRegistration(
-    @Param('id') id: string,
-    @Body('comment') comment?: string,
-    @Request() req?: any
-  ): Promise<Omit<PendingRegistration, 'password'>> {
-    const registration = await this.usersService.approveRegistration(id, req?.user?.id, comment);
-    const { password, ...result } = registration;
-    return result;
+  @ApiOperation({ summary: 'Одобрить: человек + учётная запись (роль — из приглашения или «Участник»)' })
+  async approve(@CurrentUser() user: AuthUser, @Param('id') id: string, @Body() dto: ApproveRegistrationDto, @Req() req: Request) {
+    return this.regs.approve(user, id, dto, clientIp(req));
   }
 
   @Post(':id/reject')
-  @Roles(UserRole.ADMIN)
-  @ApiOperation({ summary: 'Reject a pending registration (Admin only)' })
-  @ApiResponse({ status: 200, description: 'Successfully rejected the registration.' })
-  @ApiResponse({ status: 400, description: 'Bad Request.' })
-  @ApiResponse({ status: 403, description: 'Forbidden.' })
-  @ApiResponse({ status: 404, description: 'Registration request not found.' })
-  async rejectRegistration(
-    @Param('id') id: string,
-    @Body() dto: RejectRegistrationDto,
-    @Request() req?: any
-  ): Promise<Omit<PendingRegistration, 'password'>> {
-    const registration = await this.usersService.rejectRegistration(id, req?.user?.id, dto.reason);
-    const { password, ...result } = registration;
-    return result;
+  @ApiOperation({ summary: 'Отклонить (причина обязательна)' })
+  async reject(@CurrentUser() user: AuthUser, @Param('id') id: string, @Body() dto: RejectRegistrationDto, @Req() req: Request) {
+    return this.regs.reject(user, id, dto.reason, clientIp(req));
   }
 }

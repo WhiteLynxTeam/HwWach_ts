@@ -1,19 +1,7 @@
-import { IsOptional, IsString, IsPhoneNumber, Length, Matches } from 'class-validator';
+import { IsOptional, IsString, Length, Matches, IsBoolean } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
 export class RequestUserChangeDto {
-  @ApiProperty({ description: 'Новое значение login', required: false })
-  @IsString()
-  @IsOptional()
-  @Length(3, 50)
-  login?: string;
-
-  @ApiProperty({ description: 'Новое значение password', required: false })
-  @IsString()
-  @IsOptional()
-  @Length(6, 100)
-  password?: string;
-
   @ApiProperty({ description: 'Новое значение firstName', required: false })
   @IsString()
   @IsOptional()
@@ -36,13 +24,18 @@ export class RequestUserChangeDto {
   @IsString()
   @IsOptional()
   @Matches(/^\+\d{1,15}$/, {
-    message: 'Phone must start with + and contain only digits'
+    message: 'Phone must start with + and contain only digits',
   })
   phone?: string;
 
   @ApiProperty({ description: 'Новое значение position', required: false })
   @IsString()
   @IsOptional()
-  @Length(3, 100)
+  @Length(2, 100)
   position?: string;
+
+  @ApiProperty({ description: 'true — попросить признак МОЛ (утверждает админ)', required: false })
+  @IsBoolean()
+  @IsOptional()
+  isMol?: boolean;
 }

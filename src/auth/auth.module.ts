@@ -6,7 +6,7 @@ import { LocalStrategy } from './local.strategy';
 import { JwtModule } from '@nestjs/jwt';
 import { JwtStrategy } from './jwt.strategy';
 import { AuthController } from './auth.controller';
-import { ConfigModule, ConfigService } from '@nestjs/config';
+import { UsersController } from './users.controller';
 import { getConfig } from '../config/configuration';
 
 @Module({
@@ -14,18 +14,17 @@ import { getConfig } from '../config/configuration';
     UsersModule,
     PassportModule,
     JwtModule.registerAsync({
-      imports: [ConfigModule],
       useFactory: () => {
         const config = getConfig();
         return {
           secret: config.jwt.secret,
-          signOptions: { expiresIn: config.jwt.expiresIn as any },
+          signOptions: { expiresIn: config.jwt.accessExpiresIn as any },
         };
       },
     }),
   ],
   providers: [AuthService, LocalStrategy, JwtStrategy],
-  controllers: [AuthController],
-  exports: [AuthService],
+  controllers: [AuthController, UsersController],
+  exports: [AuthService, JwtModule],
 })
 export class AuthModule {}

@@ -1,12 +1,20 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { UserRole } from '../../users/entities/user.entity';
 
 export class UserResponseDto {
-  @ApiProperty({ example: '550e8400-e29b-41d4-a716-446655440000' })
+  @ApiProperty({ example: '550e8400-e29b-41d4-a716-446655440000', description: 'id учётной записи' })
   id: string;
 
   @ApiProperty({ example: 'userLogin' })
   login: string;
+
+  @ApiProperty()
+  personId: string;
+
+  @ApiProperty()
+  organizationId: string;
+
+  @ApiPropertyOptional()
+  organizationName?: string;
 
   @ApiPropertyOptional({ example: 'Иван' })
   firstName?: string;
@@ -17,8 +25,17 @@ export class UserResponseDto {
   @ApiPropertyOptional({ example: 'Иванович' })
   middleName?: string;
 
-  @ApiProperty({ enum: UserRole, example: UserRole.USER })
-  role: UserRole;
+  @ApiProperty({ example: 'member', description: 'Код системной роли' })
+  role: string;
+
+  @ApiProperty({ example: 'Участник' })
+  roleName: string;
+
+  @ApiProperty({ example: ['assets.propose'], description: 'Права — по ним клиенты строят меню' })
+  perms: string[];
+
+  @ApiProperty({ description: 'Материально ответственное лицо' })
+  isMol: boolean;
 }
 
 export class LoginResponseDto {
@@ -32,10 +49,7 @@ export class LoginResponseDto {
   user: UserResponseDto;
 }
 
-export class RefreshResponseDto {
-  @ApiProperty({ example: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...' })
-  access_token: string;
-}
+export class RefreshResponseDto extends LoginResponseDto {}
 
 export class ErrorResponseDto {
   @ApiProperty({ example: 401 })
