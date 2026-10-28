@@ -50,12 +50,17 @@
    - DB_USERNAME = (username от PostgreSQL базы данных)
    - DB_PASSWORD = (password от PostgreSQL базы данных)
    - DB_NAME = (database name от PostgreSQL базы данных)
-   - JWT_SECRET = (сгенерируйте надежный JWT секрет)
-   - JWT_EXPIRES_IN = 24h
-   - JWT_EXPIRATION_TIME = 15m
+   - DB_SSL = true
+   - JWT_SECRET = (сгенерируйте надежный JWT секрет; тот же, что JWTSECRET в go)
+   - JWT_EXPIRATION_TIME = 10m
    - JWT_REFRESH_EXPIRATION_TIME = 7d
    - BCRYPT_ROUNDS = 10
    - PORT = 3033
+   - INTERNAL_API_KEY = (случайная строка, та же, что в go и в секретах GitHub)
+   - MAIL_DRIVER = appsscript, APPS_SCRIPT_URL, APPS_SCRIPT_SECRET — отправка писем, см. `apps-script/README.md`
+   - DEFAULT_ADMIN_LOGIN, DEFAULT_ADMIN_PASSWORD — только на первый запуск (первая организация и её админ)
+
+   Остальные переменные необязательны — список и значения по умолчанию в `org-roles-api.md` (папка над репозиторием)
 10. Нажмите "Create Web Service"
 
 ## Альтернативный метод - через render.yaml
