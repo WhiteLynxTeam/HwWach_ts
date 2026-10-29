@@ -44,11 +44,13 @@ export class EmailCodesService {
     }
   }
 
-  private async deliver(msg: MailMessage): Promise<void> {
+  // Не доставили — запись удаляем, иначе она держит лимит «раз в минуту» и шлёт «уже отправлено»
+  private async deliver(msg: MailMessage, rowId: string): Promise<void> {
     try {
       await this.mail.send(msg);
     } catch (e) {
       this.logger.error(`mail to ${msg.to} failed: ${e}`);
+      await this.repo.delete(rowId).catch(() => undefined);
       throw new HttpException('Не удалось отправить письмо, попробуйте позже', HttpStatus.SERVICE_UNAVAILABLE);
     }
   }
@@ -63,22 +65,22 @@ export class EmailCodesService {
     const email = this.normalize(rawEmail);
     await this.checkLimits(email, ip);
     const code = String(randomInt(0, 1_000_000)).padStart(6, '0');
-    await this.repo.insert({
+    const res = await this.repo.insert({
       email,
       purpose,
       codeHash: await bcrypt.hash(code, 8),
       expiresAt: new Date(Date.now() + CODE_TTL_MS),
       ip: ip || null,
     });
-    await this.deliver(build(email, code));
+    await this.deliver(build(email, code), res.identifiers[0].id);
   }
 
   // Письмо без кода (адрес уже занят) — та же запись для лимитов, ответ клиенту одинаковый
   async sendNotice(rawEmail: string, purpose: EmailCodePurpose, ip: string, msg: MailMessage): Promise<void> {
     const email = this.normalize(rawEmail);
     await this.checkLimits(email, ip);
-    await this.repo.insert({ email, purpose, codeHash: null, expiresAt: new Date(), ip: ip || null });
-    await this.deliver(msg);
+    const res = await this.repo.insert({ email, purpose, codeHash: null, expiresAt: new Date(), ip: ip || null });
+    await this.deliver(msg, res.identifiers[0].id);
   }
 
   // Проверить и погасить код. После 5 неверных попыток код сгорает
