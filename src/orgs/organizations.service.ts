@@ -16,6 +16,7 @@ import { AccountsService } from '../users/accounts.service';
 import { hashPassword } from '../users/account-helpers';
 import { AuthService } from '../auth/auth.service';
 import { getConfig } from '../config/configuration';
+import { allocateOrgNumber, normalizeOrgNumber } from '../common/org-number';
 import { CompleteOrgRegistrationDto, UpdateOrganizationDto } from './dto/orgs.dto';
 
 const MIN_SEARCH_LEN = 4;
@@ -97,6 +98,7 @@ export class OrganizationsService {
     const created = await this.dataSource.transaction(async (m) => {
       const org = await m.save(Organization, m.create(Organization, {
         name: dto.name,
+        number: await allocateOrgNumber(m),
         shortName: dto.shortName || null,
         searchName: orgSearchName(dto.name, dto.shortName),
         email,
@@ -163,6 +165,32 @@ export class OrganizationsService {
     return rows.map((o) => ({ id: o.id, name: o.name, shortName: o.shortName ?? null }));
   }
 
+  /**
+   * Организация по номеру (9.2) — для регистрации и входа: только название, чтобы человек убедился, что
+   * номер верный. Перебор даёт лишь название (заявку всё равно утверждает админ), поэтому — лимит с IP,
+   * а неверный номер и чужой отвечают одинаково.
+   */
+  async byNumber(raw: string, ip: string) {
+    await this.limits.hit(`org_number:${ip}`, 30, 3_600_000, 'Слишком много проверок номера. Попробуйте через час.');
+    const number = normalizeOrgNumber(raw);
+    const o = number
+      ? await this.orgs.findOne({ where: { number, status: OrganizationStatus.ACTIVE }, select: ['id', 'name', 'shortName', 'number', 'deletedAt'] })
+      : null;
+    if (!o || o.deletedAt) throw new NotFoundException('Организация не найдена');
+    return { id: o.id, name: o.name, shortName: o.shortName ?? null, number: o.number };
+  }
+
+  // Номер утёк и посыпались заявки — новый номер; старый перестаёт работать, заявки остаются
+  async changeNumber(user: AuthUser, ip: string) {
+    const number = await this.dataSource.transaction(async (m) => {
+      const n = await allocateOrgNumber(m);
+      await m.update(Organization, user.org, { number: n });
+      await this.audit.log({ org: user.org, user, action: 'org.number_change', objectType: 'organization', objectId: user.org, details: {}, ip }, m);
+      return n;
+    });
+    return { number };
+  }
+
   async me(user: AuthUser) {
     const o = await this.orgs.findOne({ where: { id: user.org } });
     if (!o) throw new NotFoundException('Организация не найдена');
@@ -170,6 +198,7 @@ export class OrganizationsService {
     return {
       id: o.id,
       name: o.name,
+      number: o.number,
       shortName: o.shortName ?? null,
       email: o.email ?? null,
       address: o.address ?? null,

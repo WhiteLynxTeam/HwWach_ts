@@ -18,9 +18,16 @@ export class RegisterDto {
   password: string;
 
   @ApiPropertyOptional({ description: 'Организация, найденная поиском' })
-  @ValidateIf((o) => !o.inviteCode)
+  @ValidateIf((o) => !o.inviteCode && !o.organizationNumber)
   @IsUUID()
   organizationId?: string;
+
+  @ApiPropertyOptional({ example: '482 913 5', description: 'Номер организации, продиктованный админом (9.2)' })
+  @IsOptional()
+  @Trim()
+  @IsString()
+  @Length(7, 20)
+  organizationNumber?: string;
 
   @ApiPropertyOptional({ example: 'K7M-42Q', description: 'Код или токен приглашения' })
   @IsOptional()

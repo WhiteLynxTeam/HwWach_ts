@@ -1,6 +1,6 @@
 import { BadRequestException, ConflictException, HttpException, HttpStatus, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { DataSource, LessThan, Repository } from 'typeorm';
+import { DataSource, In, LessThan, Repository } from 'typeorm';
 import { createHash } from 'crypto';
 import { PendingRegistration, Invite } from '../entities/requests.entity';
 import { Organization, OrganizationStatus } from '../entities/organization.entity';
@@ -11,11 +11,13 @@ import { AuthUser } from '../common/auth-user';
 import { AuditService } from '../core/audit.service';
 import { OrgActivityService } from '../core/org-activity.service';
 import { AccountsService } from './accounts.service';
+import { normalizeOrgNumber } from '../common/org-number';
 import { checkForbiddenLogin, hashPassword } from './account-helpers';
 import { RegisterDto } from '../auth/dto/register.dto';
 
-// Лимиты заявок через поиск (9.1): чтобы админа не завалили
-const MAX_PENDING_SEARCH_PER_ORG = 20;
+// Лимиты заявок через поиск и по номеру организации (9.1, 9.2): чтобы админа не завалили.
+// На организацию — с запасом, если админ не успевает разбирать; число — в настройке сервера
+const MAX_PENDING_OPEN_PER_ORG = Math.max(1, parseInt(process.env.MAX_PENDING_REGISTRATIONS_PER_ORG ?? '', 10) || 100);
 const MAX_PENDING_PER_IP = 3;
 
 export function normalizeInviteCode(code: string): string {
@@ -58,13 +60,22 @@ export class RegistrationsService {
     checkForbiddenLogin(dto.login);
     let organizationId: string;
     let invite: Invite | null = null;
+    let source: PendingRegistration['source'];
     if (dto.inviteCode) {
       invite = await this.findUsableInvite(dto.inviteCode);
       organizationId = invite.organizationId;
+      source = 'invite';
+    } else if (dto.organizationNumber) {
+      const number = normalizeOrgNumber(dto.organizationNumber);
+      const byNumber = number ? await this.orgs.findOne({ where: { number } }) : null;
+      if (!byNumber) throw new NotFoundException('Организация не найдена');
+      organizationId = byNumber.id;
+      source = 'number';
     } else if (dto.organizationId) {
       organizationId = dto.organizationId;
+      source = 'search';
     } else {
-      throw new BadRequestException('Выберите организацию или введите код приглашения');
+      throw new BadRequestException('Выберите организацию, введите её номер или код приглашения');
     }
 
     const org = await this.orgs.findOne({ where: { id: organizationId } });
@@ -72,26 +83,29 @@ export class RegistrationsService {
       throw new NotFoundException('Организация не найдена');
     }
 
-    if (await this.accounts.loginTaken(dto.login)) {
+    // Логин уникален внутри организации (9.2)
+    if (await this.accounts.loginTaken(dto.login, organizationId)) {
       throw new ConflictException('Логин уже занят');
     }
     const samePending = await this.regs
       .createQueryBuilder('r')
-      .where('lower(r.login) = lower(:login) AND r.status = :st', { login: dto.login, st: RequestStatus.PENDING })
+      .where('lower(r.login) = lower(:login) AND r.organization_id = :org AND r.status = :st', {
+        login: dto.login, org: organizationId, st: RequestStatus.PENDING,
+      })
       .getCount();
     if (samePending > 0) {
       throw new ConflictException('Заявка с таким логином уже на рассмотрении');
     }
 
     if (!invite) {
-      const pendingSearch = await this.regs.count({ where: { organizationId, source: 'search', status: RequestStatus.PENDING } });
-      if (pendingSearch >= MAX_PENDING_SEARCH_PER_ORG) {
+      const pendingOpen = await this.regs.count({ where: { organizationId, source: In(['search', 'number']), status: RequestStatus.PENDING } });
+      if (pendingOpen >= MAX_PENDING_OPEN_PER_ORG) {
         throw new HttpException('Организация сейчас не принимает заявки. Попросите приглашение у администратора.', HttpStatus.TOO_MANY_REQUESTS);
       }
       if (ip) {
         const pendingIp = await this.regs
           .createQueryBuilder('r')
-          .where('r.created_ip = :ip AND r.status = :st AND r.source = :src', { ip, st: RequestStatus.PENDING, src: 'search' })
+          .where('r.created_ip = :ip AND r.status = :st AND r.source IN (:...src)', { ip, st: RequestStatus.PENDING, src: ['search', 'number'] })
           .getCount();
         if (pendingIp >= MAX_PENDING_PER_IP) {
           throw new HttpException('С вашей сети уже отправлено несколько заявок. Дождитесь решения администратора.', HttpStatus.TOO_MANY_REQUESTS);
@@ -114,7 +128,7 @@ export class RegistrationsService {
         organizationId,
         personId: invite?.personId ?? null,
         inviteId: invite?.id ?? null,
-        source: invite ? 'invite' : 'search',
+        source,
         systemRoleId: invite?.systemRoleId ?? null,
         login: dto.login.trim(),
         password: await hashPassword(dto.password),

@@ -118,8 +118,8 @@ export class ChangeRequestsService {
   // --- Сброс пароля ---
 
   // «Забыли пароль?» с экрана входа. Вход не блокируется до решения админа
-  async requestReset(login: string): Promise<{ id: string; status: RequestStatus }> {
-    const acc = await this.accountsService.findActiveByLogin(login);
+  async requestReset(login: string, orgNumber?: string): Promise<{ id: string; status: RequestStatus }> {
+    const acc = await this.accountsService.findActiveByLogin(login, orgNumber);
     if (!acc) throw new NotFoundException('Пользователь с таким логином не найден');
     const existing = await this.resets.findOne({ where: { accountId: acc.id, status: RequestStatus.PENDING } });
     if (existing) throw new ConflictException('Заявка на сброс пароля для этого пользователя уже находится на рассмотрении');

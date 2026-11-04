@@ -74,7 +74,7 @@ export class AuthController {
   @ApiResponse({ status: 409, description: 'Active reset request already exists.' })
   @ApiBody({ type: ForgotPasswordDto })
   async forgotPassword(@Body() dto: ForgotPasswordDto) {
-    return this.changes.requestReset(dto.login);
+    return this.changes.requestReset(dto.login, dto.organizationNumber);
   }
 
   @Post('change-temp-password')
@@ -82,7 +82,7 @@ export class AuthController {
   @ApiOperation({ summary: 'Change temporary password (Public endpoint)' })
   @ApiBody({ type: ChangeTempPasswordDto })
   async changeTempPassword(@Body() dto: ChangeTempPasswordDto): Promise<{ message: string }> {
-    await this.accounts.changeTempPassword(dto.login, dto.oldPassword, dto.newPassword);
+    await this.accounts.changeTempPassword(dto.login, dto.oldPassword, dto.newPassword, dto.organizationNumber);
     return { message: 'Password changed successfully' };
   }
 }

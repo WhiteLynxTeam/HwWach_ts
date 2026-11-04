@@ -56,11 +56,27 @@ export class OrganizationsController {
     return this.orgs.search(q, clientIp(req));
   }
 
+  @Get('by-number/:number')
+  @ApiOperation({ summary: 'Организация по номеру (9.2) для регистрации и входа: только название; лимит 30 в час с IP' })
+  async byNumber(@Param('number') number: string, @Req() req: Request) {
+    return this.orgs.byNumber(number, clientIp(req));
+  }
+
   @Get('me')
   @UseGuards(AuthGuard('jwt'))
   @ApiBearerAuth()
   async me(@CurrentUser() user: AuthUser) {
     return this.orgs.me(user);
+  }
+
+  @Post('me/number')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(AuthGuard('jwt'), PermsGuard)
+  @RequirePerms(Perm.ORG_MANAGE)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Сменить номер организации (утёк — посыпались заявки): старый перестаёт работать' })
+  async changeNumber(@CurrentUser() user: AuthUser, @Req() req: Request) {
+    return this.orgs.changeNumber(user, clientIp(req));
   }
 
   @Put('me')

@@ -14,6 +14,7 @@ import { ADMIN_ROLE_ID, MEMBER_ROLE_ID, Perm, RoleCode, roleIdByCode } from '../
 import { AuthUser, hasPerm } from '../common/auth-user';
 import { AuditService } from '../core/audit.service';
 import { OrgActivityService } from '../core/org-activity.service';
+import { allocateOrgNumber, normalizeOrgNumber } from '../common/org-number';
 import { checkForbiddenLogin, hashPassword, rethrowUnique, tempPassword } from './account-helpers';
 
 export interface CreateAccountInput {
@@ -71,6 +72,7 @@ export class AccountsService implements OnModuleInit {
         const orgName = process.env.DEFAULT_ORG_NAME || 'Моя организация';
         const org = await m.save(Organization, m.create(Organization, {
           name: orgName,
+          number: await allocateOrgNumber(m),
           searchName: orgSearchName(orgName),
           email: process.env.DEFAULT_ORG_EMAIL?.toLowerCase() || null,
           emailVerifiedAt: process.env.DEFAULT_ORG_EMAIL ? new Date() : null,
@@ -134,15 +136,49 @@ export class AccountsService implements OnModuleInit {
     return null;
   }
 
-  async validateLogin(login: string, password: string): Promise<Account | null> {
-    checkForbiddenLogin(login);
-    const found = await this.accounts
+  /**
+   * Учётная запись для входа (9.2). Логин уникален только внутри организации, почта — во всей системе:
+   * - номер организации указан — логин или почта внутри неё (неверный номер — «не найдено», как неверный логин);
+   * - номера нет — почта (новое устройство, номер забыли) или логин, если он есть ровно в одной организации;
+   *   логин есть в нескольких — 409 ORG_NUMBER_REQUIRED: приложение просит номер.
+   */
+  async findForLogin(login: string, orgNumber?: string | null, withPassword = false): Promise<Account | null> {
+    const qb = this.accounts
       .createQueryBuilder('a')
-      .addSelect('a.password')
       .leftJoinAndSelect('a.person', 'p')
       .leftJoinAndSelect('a.organization', 'o')
-      .where('lower(a.login) = lower(:login) AND a.is_active', { login })
-      .getOne();
+      .where('a.is_active');
+    if (withPassword) qb.addSelect('a.password');
+    if (orgNumber?.trim()) {
+      const number = normalizeOrgNumber(orgNumber);
+      if (!number) return null;
+      return qb
+        .andWhere('o.number = :number', { number })
+        .andWhere('(lower(a.login) = lower(:login) OR lower(a.email) = lower(:login))', { login })
+        .orderBy('CASE WHEN lower(a.login) = lower(:login) THEN 0 ELSE 1 END')
+        .getOne();
+    }
+    const found = await qb
+      .andWhere('(lower(a.login) = lower(:login) OR lower(a.email) = lower(:login))', { login })
+      .getMany();
+    const byEmail = found.find((a) => a.email && a.email.toLowerCase() === login.trim().toLowerCase());
+    if (byEmail) return byEmail;
+    if (found.length > 1) {
+      throw new HttpException(
+        {
+          statusCode: HttpStatus.CONFLICT,
+          message: 'Такой логин есть в нескольких организациях — укажите номер организации',
+          error_code: 'ORG_NUMBER_REQUIRED',
+        },
+        HttpStatus.CONFLICT,
+      );
+    }
+    return found[0] ?? null;
+  }
+
+  async validateLogin(login: string, password: string, orgNumber?: string | null): Promise<Account | null> {
+    checkForbiddenLogin(login);
+    const found = await this.findForLogin(login, orgNumber, true);
     if (!found || !(await bcrypt.compare(password, found.password))) {
       return null;
     }
@@ -229,9 +265,13 @@ export class AccountsService implements OnModuleInit {
     return saved;
   }
 
-  async loginTaken(login: string, m?: EntityManager): Promise<boolean> {
+  // Логин уникален внутри организации (9.2): в другой организации такой же — не помеха
+  async loginTaken(login: string, organizationId: string, m?: EntityManager): Promise<boolean> {
     const repo = m ? m.getRepository(Account) : this.accounts;
-    return (await repo.createQueryBuilder('a').where('lower(a.login) = lower(:login) AND a.is_active', { login }).getCount()) > 0;
+    return (await repo
+      .createQueryBuilder('a')
+      .where('lower(a.login) = lower(:login) AND a.organization_id = :org AND a.is_active', { login, org: organizationId })
+      .getCount()) > 0;
   }
 
   // --- Управление учётными записями (accounts.manage) ---
@@ -365,23 +405,16 @@ export class AccountsService implements OnModuleInit {
     return (await this.loadFull(a.id))!;
   }
 
-  async changeTempPassword(login: string, oldPassword: string, newPassword: string): Promise<void> {
-    const a = await this.accounts
-      .createQueryBuilder('a')
-      .addSelect('a.password')
-      .where('lower(a.login) = lower(:login) AND a.is_active', { login })
-      .getOne();
+  async changeTempPassword(login: string, oldPassword: string, newPassword: string, orgNumber?: string | null): Promise<void> {
+    const a = await this.findForLogin(login, orgNumber, true);
     if (!a) throw new NotFoundException('Пользователь не найден');
     if (!a.isPassReset) throw new BadRequestException('Пользователь не требует смены временного пароля');
     if (!(await bcrypt.compare(oldPassword, a.password))) throw new BadRequestException('Неверный старый пароль');
     await this.accounts.update(a.id, { password: await hashPassword(newPassword), isPassReset: false, tokenVersion: a.tokenVersion + 1 });
   }
 
-  async findActiveByLogin(login: string): Promise<Account | null> {
-    return this.accounts
-      .createQueryBuilder('a')
-      .where('lower(a.login) = lower(:login) AND a.is_active', { login })
-      .getOne();
+  async findActiveByLogin(login: string, orgNumber?: string | null): Promise<Account | null> {
+    return this.findForLogin(login, orgNumber);
   }
 
   async activeAccountOfPerson(personId: string, m?: EntityManager): Promise<Account | null> {

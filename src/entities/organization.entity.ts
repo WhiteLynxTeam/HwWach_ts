@@ -16,6 +16,11 @@ export class Organization {
   @Column({ length: 255 })
   name: string;
 
+  // Номер организации (9.2): 6 случайных цифр + контрольная; по нему регистрируются и входят
+  @ApiProperty({ example: '4829135' })
+  @Column({ type: 'varchar', length: 7 })
+  number: string;
+
   @ApiPropertyOptional()
   @Column({ name: 'short_name', type: 'varchar', length: 100, nullable: true })
   shortName?: string | null;

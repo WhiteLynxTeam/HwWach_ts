@@ -83,7 +83,7 @@ export class PendingRegistration {
 
   @ApiProperty({ enum: ['invite', 'search'] })
   @Column({ type: 'varchar', length: 10 })
-  source: 'invite' | 'search';
+  source: 'invite' | 'search' | 'number';
 
   @Column({ name: 'system_role_id', type: 'uuid', nullable: true })
   systemRoleId?: string | null;
