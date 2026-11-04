@@ -22,7 +22,7 @@ export class RegisterDto {
   @IsUUID()
   organizationId?: string;
 
-  @ApiPropertyOptional({ example: '482 913 5', description: 'Номер организации, продиктованный админом (9.2)' })
+  @ApiPropertyOptional({ example: '482 913 1', description: 'Номер организации, продиктованный админом (9.2)' })
   @IsOptional()
   @Trim()
   @IsString()

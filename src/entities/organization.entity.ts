@@ -17,7 +17,7 @@ export class Organization {
   name: string;
 
   // Номер организации (9.2): 6 случайных цифр + контрольная; по нему регистрируются и входят
-  @ApiProperty({ example: '4829135' })
+  @ApiProperty({ example: '4829131' })
   @Column({ type: 'varchar', length: 7 })
   number: string;
 

@@ -20,7 +20,7 @@ export function luhnCheckDigit(payload: string): number {
   return (10 - (sum % 10)) % 10;
 }
 
-// Номер из ввода пользователя («482 913 5», «482-9135»): только цифры, 7 штук и верная контрольная; иначе null.
+// Номер из ввода пользователя («482 913 1», «482-9131»): только цифры, 7 штук и верная контрольная; иначе null.
 export function normalizeOrgNumber(raw?: string | null): string | null {
   const digits = (raw ?? '').replace(/\D/g, '');
   if (!/^[1-9]\d{6}$/.test(digits)) return null;
@@ -33,7 +33,7 @@ export function randomOrgNumber(): string {
   return payload + luhnCheckDigit(payload);
 }
 
-// «4829135» → «482 913 5» — для показа и «Поделиться».
+// «4829131» → «482 913 1» — для показа и «Поделиться».
 export function formatOrgNumber(n: string): string {
   return n.length === 7 ? `${n.slice(0, 3)} ${n.slice(3, 6)} ${n.slice(6)}` : n;
 }

@@ -7,7 +7,7 @@ export class ForgotPasswordDto {
   @IsString()
   login: string;
 
-  @ApiPropertyOptional({ example: '482 913 5', description: 'Номер организации (9.2): логин уникален только внутри неё. Без номера — вход по почте или по логину, если он один во всей системе' })
+  @ApiPropertyOptional({ example: '482 913 1', description: 'Номер организации (9.2): логин уникален только внутри неё. Без номера — вход по почте или по логину, если он один во всей системе' })
   @IsOptional()
   @IsString()
   @MaxLength(20)
