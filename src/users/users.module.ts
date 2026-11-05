@@ -4,6 +4,7 @@ import { PersonsService } from './persons.service';
 import { RegistrationsService } from './registrations.service';
 import { ChangeRequestsService } from './change-requests.service';
 import { AdminHandoverService } from './admin-handover.service';
+import { PasswordResetService } from './password-reset.service';
 import { AccountsController } from './accounts.controller';
 import { PersonsController } from './persons.controller';
 import { RegistrationsController } from './registrations.controller';
@@ -13,7 +14,7 @@ import { UserChangeRequestsController } from './user-change-requests.controller'
 
 // Люди, учётные записи и заявки, которые утверждает админ организации
 @Module({
-  providers: [AccountsService, PersonsService, RegistrationsService, ChangeRequestsService, AdminHandoverService],
+  providers: [AccountsService, PersonsService, RegistrationsService, ChangeRequestsService, AdminHandoverService, PasswordResetService],
   controllers: [
     AccountsController,
     PersonsController,
@@ -22,6 +23,6 @@ import { UserChangeRequestsController } from './user-change-requests.controller'
     ResetPassController,
     UserChangeRequestsController,
   ],
-  exports: [AccountsService, PersonsService, RegistrationsService, ChangeRequestsService],
+  exports: [AccountsService, PersonsService, RegistrationsService, ChangeRequestsService, PasswordResetService],
 })
 export class UsersModule {}

@@ -8,11 +8,12 @@ import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
 import { LoginResponseDto, RefreshResponseDto, ErrorResponseDto, PasswordChangeRequiredResponseDto } from './dto/auth-response.dto';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
-import { ForgotPasswordDto } from './dto/forgot-password.dto';
+import { ForgotPasswordDto, PasswordResetConfirmDto, PasswordResetSendCodeDto } from './dto/forgot-password.dto';
 import { ChangeTempPasswordDto } from '../users/dto/change-temp-password.dto';
 import { RegistrationsService } from '../users/registrations.service';
 import { ChangeRequestsService } from '../users/change-requests.service';
 import { AccountsService } from '../users/accounts.service';
+import { PasswordResetService } from '../users/password-reset.service';
 import { CurrentUser } from '../common/auth-user';
 import type { AuthUser } from '../common/auth-user';
 import { clientIp } from '../common/client-ip';
@@ -25,6 +26,7 @@ export class AuthController {
     private accounts: AccountsService,
     private registrations: RegistrationsService,
     private changes: ChangeRequestsService,
+    private passwordReset: PasswordResetService,
   ) {}
 
   @Post('login')
@@ -75,6 +77,22 @@ export class AuthController {
   @ApiBody({ type: ForgotPasswordDto })
   async forgotPassword(@Body() dto: ForgotPasswordDto) {
     return this.changes.requestReset(dto.login, dto.organizationNumber);
+  }
+
+  @Post('password-reset/send-code')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Сброс пароля по почте, шаг 1: код на подтверждённую почту (ответ одинаковый, есть адрес или нет)' })
+  @ApiResponse({ status: 429, description: 'Лимит писем: раз в 60 с, 5 в час на адрес, 20 в час с IP.' })
+  async passwordResetSendCode(@Body() dto: PasswordResetSendCodeDto, @Req() req: ExpressRequest) {
+    return this.passwordReset.sendCode(dto.email, clientIp(req));
+  }
+
+  @Post('password-reset/confirm')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Шаг 2: код + новый пароль. Все входы завершаются, заявки админу на сброс закрываются' })
+  @ApiResponse({ status: 400, description: 'Код неверный или устарел (5 попыток на код).' })
+  async passwordResetConfirm(@Body() dto: PasswordResetConfirmDto, @Req() req: ExpressRequest) {
+    return this.passwordReset.confirm(dto.email, dto.code, dto.newPassword, clientIp(req));
   }
 
   @Post('change-temp-password')
