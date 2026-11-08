@@ -16,6 +16,9 @@ export class UserResponseDto {
   @ApiPropertyOptional()
   organizationName?: string;
 
+  @ApiPropertyOptional({ example: '4829131', description: 'Номер организации для входа (9.2)' })
+  organizationNumber?: string;
+
   @ApiPropertyOptional({ example: 'Иван' })
   firstName?: string;
 

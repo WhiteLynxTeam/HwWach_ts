@@ -211,6 +211,7 @@ export class AccountsService implements OnModuleInit {
       personId: a.personId,
       organizationId: a.organizationId,
       organizationName: a.organization?.shortName || a.organization?.name || null,
+      organizationNumber: a.organization?.number ?? null,
       lastName: a.person?.lastName ?? null,
       firstName: a.person?.firstName ?? null,
       middleName: a.person?.middleName ?? null,

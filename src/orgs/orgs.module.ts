@@ -5,7 +5,7 @@ import { OrganizationsService } from './organizations.service';
 import { InvitesService } from './invites.service';
 import { JobsService } from './jobs.service';
 import {
-  AuditController, InternalController, InvitePageController, InvitesController, OrganizationsController, OrgRegistrationController,
+  AuditController, InternalController, InvitePageController, OrgLinkPageController, InvitesController, OrganizationsController, OrgRegistrationController,
 } from './orgs.controllers';
 
 // Организации: регистрация, поиск, приглашения, журнал, внутренние запросы и ежесуточная задача
@@ -17,6 +17,7 @@ import {
     OrganizationsController,
     InvitesController,
     InvitePageController,
+    OrgLinkPageController,
     AuditController,
     InternalController,
   ],

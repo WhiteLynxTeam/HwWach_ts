@@ -4,6 +4,7 @@ import { ApiBearerAuth, ApiOperation, ApiQuery, ApiTags, ApiExcludeEndpoint } fr
 import type { Request } from 'express';
 import { OrganizationsService } from './organizations.service';
 import { InvitesService } from './invites.service';
+import { orgLinkPage } from './org-link.page';
 import { JobsService } from './jobs.service';
 import { CompleteOrgRegistrationDto, CreateInviteDto, SendCodeDto, UpdateOrganizationDto, VerifyCodeDto } from './dto/orgs.dto';
 import { CurrentUser } from '../common/auth-user';
@@ -123,6 +124,17 @@ export class InvitesController {
   @ApiOperation({ summary: 'Отозвать приглашение' })
   async revoke(@CurrentUser() user: AuthUser, @Param('id') id: string, @Req() req: Request) {
     return this.invites.revoke(user, id, clientIp(req));
+  }
+}
+
+// Ссылка-приглашение для входа: номер организации подставится на экране входа
+@Controller('org')
+export class OrgLinkPageController {
+  @Get(':number')
+  @Header('Content-Type', 'text/html; charset=utf-8')
+  @ApiExcludeEndpoint()
+  page(@Param('number') number: string) {
+    return orgLinkPage(number);
   }
 }
 
