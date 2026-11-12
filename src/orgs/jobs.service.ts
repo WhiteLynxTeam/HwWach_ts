@@ -7,7 +7,7 @@ import { AuditService } from '../core/audit.service';
 import { EmailCodesService } from '../core/email-codes.service';
 import { GoClientService } from '../core/go-client.service';
 import { RateLimitService } from '../core/rate-limit.service';
-import { MailSender, GmailRevokedError } from '../mail/mail.service';
+import { MailSender } from '../mail/mail.service';
 import { MailTemplates } from '../mail/mail.templates';
 import { AccountsService } from '../users/accounts.service';
 import { RegistrationsService } from '../users/registrations.service';
@@ -48,14 +48,11 @@ export class JobsService {
       }
     };
 
-    await step('gmail', async () => {
-      try {
-        await this.mail.keepAlive();
-        return 'ok';
-      } catch (e) {
-        if (e instanceof GmailRevokedError) return { error: e.message };
-        throw e;
-      }
+    // Проверка почты: Apps Script — ping с остатком квоты, Gmail — обмен refresh-токена (не даёт ему протухнуть).
+    // Сбой (неверный секрет, отозван доступ, скрипт не опубликован) попадает в failed — будильник покажет ошибку
+    await step('mail', async () => {
+      await this.mail.keepAlive();
+      return 'ok';
     });
     await step('expiredRegistrations', () => this.regs.expireOld(getConfig().retention.registrationExpireDays));
     await step('emptyOrgs', () => this.softDeleteEmpty());
@@ -67,7 +64,12 @@ export class JobsService {
     }));
 
     await this.runs.update(run.id, { finishedAt: new Date(), result: result as any });
-    return { runId: run.id, ...result };
+    // ok=false, если упал хоть один шаг: будильник (GitHub Actions) проверяет поле и помечает запуск красным —
+    // GitHub присылает письмо владельцу репозитория. HTTP остаётся 200: на 5xx curl --retry перезапустил бы всю задачу
+    const failed = Object.entries(result)
+      .filter(([, v]) => v && typeof v === 'object' && 'error' in v)
+      .map(([k]) => k);
+    return { ok: failed.length === 0, failed, runId: run.id, ...result };
   }
 
   async lastRun(): Promise<JobRun | null> {

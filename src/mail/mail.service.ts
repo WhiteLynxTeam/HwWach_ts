@@ -131,8 +131,34 @@ export class AppsScriptMailSender extends MailSender {
   }
 }
 
+// Драйвер задаётся явно. Раньше без MAIL_DRIVER молча включался console — если переменная терялась
+// на Render, коды уходили в лог и никто об этом не знал. Теперь сервер не стартует, и деплой падает с понятной ошибкой
+const REQUIRED_ENV: Record<string, string[]> = {
+  appsscript: ['APPS_SCRIPT_URL', 'APPS_SCRIPT_SECRET'],
+  gmail: [
+    'GMAIL_CLIENT_ID',
+    'GMAIL_CLIENT_SECRET',
+    'GMAIL_REFRESH_TOKEN',
+    'MAIL_FROM',
+  ],
+  console: [],
+};
+
 export function createMailSender(): MailSender {
-  switch (process.env.MAIL_DRIVER) {
+  const driver = process.env.MAIL_DRIVER?.trim();
+  if (!driver || !Object.hasOwn(REQUIRED_ENV, driver)) {
+    throw new Error(
+      `MAIL_DRIVER ${driver ? `«${driver}» не поддерживается` : 'не задан'}: укажите appsscript, gmail или console (console — письма только в лог, для локального запуска)`,
+    );
+  }
+  const missing = REQUIRED_ENV[driver].filter((k) => !process.env[k]?.trim());
+  if (missing.length) {
+    throw new Error(`MAIL_DRIVER=${driver}: не заданы ${missing.join(', ')}`);
+  }
+  new Logger('Mail').log(
+    `Драйвер почты: ${driver}${driver === 'console' ? ' — письма только в лог' : ''}`,
+  );
+  switch (driver) {
     case 'appsscript':
       return new AppsScriptMailSender();
     case 'gmail':

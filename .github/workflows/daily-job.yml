@@ -2,6 +2,8 @@
 # таймеры внутри процесса не выполняет — автоудаление и письма-предупреждения запускаем снаружи.
 # Секреты репозитория: TS_PUBLIC_URL (https://ts-back-hwwach.onrender.com) и INTERNAL_API_KEY.
 # GitHub отключает расписание в репозитории без коммитов 60 дней — при простое проверить, что workflow включён.
+# Если шаг задачи упал (в том числе проверка почты), ответ содержит "ok":false — запуск помечается красным,
+# и GitHub присылает письмо о неудаче владельцу репозитория (Settings → Notifications → Actions).
 name: daily-job
 
 on:
@@ -17,6 +19,11 @@ jobs:
         run: curl -sS --retry 3 --retry-delay 20 --max-time 120 "${{ secrets.TS_PUBLIC_URL }}/health" || true
       - name: Ежесуточная задача
         run: |
-          curl -sS --fail --retry 3 --retry-delay 30 --max-time 300 \
+          out=$(curl -sS --fail --retry 3 --retry-delay 30 --max-time 300 \
             -X POST -H "X-Internal-Key: ${{ secrets.INTERNAL_API_KEY }}" \
-            "${{ secrets.TS_PUBLIC_URL }}/internal/jobs/daily"
+            "${{ secrets.TS_PUBLIC_URL }}/internal/jobs/daily")
+          echo "$out"
+          if ! echo "$out" | grep -q '"ok":true'; then
+            echo "::error::Ежесуточная задача: упали шаги $(echo "$out" | grep -o '"failed":\[[^]]*\]')"
+            exit 1
+          fi
